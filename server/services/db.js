@@ -6,28 +6,21 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+try {
+  dotenv.config({ path: path.join(__dirname, '..', '.env') });
+  dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+} catch {}
 
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
-import { initMySQL, getMySQLPool, isMySQLConnected } from './mysql.js';
+import { initMySQL } from './mysql.js';
 
 const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
-const SEED_FILE = path.join(__dirname, '..', 'data', 'store.json');
 const DB_FILE = isServerless
   ? path.join(os.tmpdir(), 'stitch_store.json')
   : path.join(__dirname, '..', 'data', 'store.json');
 
-// Ensure data directory exists in local environment
-if (!isServerless) {
-  const dataDir = path.join(__dirname, '..', 'data');
-  if (!fs.existsSync(dataDir)) {
-    try { fs.mkdirSync(dataDir, { recursive: true }); } catch {}
-  }
-}
-
-// Initial seed products matching exact requested specifications and price ranges
+// Initial seed products
 const initialProducts = [
   {
     id: 'prod-lb-1',
@@ -193,17 +186,16 @@ const initialProducts = [
   }
 ];
 
-// Persistent Database Store with Serverless & Local Support
 class Store {
   constructor() {
     this.data = {
       users: [],
-      products: initialProducts,
+      products: [...initialProducts],
       orders: [],
       otps: {}
     };
-    this.load();
     this.seedUsers();
+    this.load();
     initMySQL().catch(() => {});
   }
 
@@ -212,33 +204,25 @@ class Store {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf8');
         const parsed = JSON.parse(raw);
-        this.data.users = parsed.users || [];
-        this.data.products = (parsed.products && parsed.products.length > 0) ? parsed.products : initialProducts;
-        this.data.orders = parsed.orders || [];
-        this.data.otps = parsed.otps || {};
-      } else if (fs.existsSync(SEED_FILE)) {
-        const raw = fs.readFileSync(SEED_FILE, 'utf8');
-        const parsed = JSON.parse(raw);
-        this.data.users = parsed.users || [];
-        this.data.products = (parsed.products && parsed.products.length > 0) ? parsed.products : initialProducts;
-        this.data.orders = parsed.orders || [];
-        this.data.otps = parsed.otps || {};
-        this.save();
-      } else {
-        this.save();
+        if (parsed.users && parsed.users.length > 0) this.data.users = parsed.users;
+        if (parsed.products && parsed.products.length > 0) this.data.products = parsed.products;
+        if (parsed.orders) this.data.orders = parsed.orders;
+        if (parsed.otps) this.data.otps = parsed.otps;
       }
-    } catch (err) {
-      console.error('Error loading db file:', err.message);
-      this.save();
+    } catch {
+      // Graceful in-memory fallback
     }
   }
 
   save() {
     try {
+      if (!isServerless) {
+        const dir = path.dirname(DB_FILE);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      }
       fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf8');
-    } catch (err) {
-      // In-memory persistence continues safely if filesystem write is restricted
-      console.warn('Warning writing db file:', err.message);
+    } catch {
+      // In-memory store continues smoothly
     }
   }
 
@@ -278,10 +262,8 @@ class Store {
       const exists = this.data.users.some(u => u.email.toLowerCase() === adminEmail.toLowerCase());
       if (!exists) this.data.users.push(adminUser);
     }
-    this.save();
   }
 
-  // User methods
   findUserByEmail(email) {
     if (!email) return null;
     return this.data.users.find(u => u.email.toLowerCase() === email.toLowerCase());
@@ -319,7 +301,6 @@ class Store {
     return this.data.users[idx];
   }
 
-  // Product methods
   getProducts(filters = {}) {
     let result = [...this.data.products];
     if (filters.category && filters.category !== 'all') {
@@ -396,7 +377,6 @@ class Store {
     return true;
   }
 
-  // Order methods
   createOrder(orderData) {
     const order = {
       id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
@@ -449,7 +429,6 @@ class Store {
     return true;
   }
 
-  // OTP Store methods
   saveOtp(targetKey, otpData) {
     this.data.otps[targetKey] = {
       ...otpData,

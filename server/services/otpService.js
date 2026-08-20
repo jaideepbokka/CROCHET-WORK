@@ -5,9 +5,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Explicitly load .env
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+try {
+  dotenv.config({ path: path.join(__dirname, '..', '.env') });
+  dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+} catch {}
 
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
@@ -15,23 +16,22 @@ import { db } from './db.js';
 
 let liveTransporter = null;
 
-// Initialize Transporter based on .env
+// Initialize Transporter based on .env with fallback
 const initTransporters = () => {
-  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+  const user = process.env.SMTP_USER || 'jdeep8823@gmail.com';
+  const pass = process.env.SMTP_PASS || 'ehzm xbjz dmly spct';
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = Number(process.env.SMTP_PORT) || 587;
+
+  if (user && pass) {
     try {
       liveTransporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: Number(process.env.SMTP_PORT) || 587,
-        secure: process.env.SMTP_SECURE === 'true' || Number(process.env.SMTP_PORT) === 465,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS
-        },
-        tls: {
-          rejectUnauthorized: false
-        }
+        host,
+        port,
+        secure: process.env.SMTP_SECURE === 'true' || port === 465,
+        auth: { user, pass },
+        tls: { rejectUnauthorized: false }
       });
-      console.log(`✅ Live SMTP Transporter initialized for: ${process.env.SMTP_USER}`);
     } catch (err) {
       console.warn('⚠️ SMTP initialization warning:', err.message);
     }
@@ -50,27 +50,21 @@ export const generateSixDigitOtp = () => {
  */
 export const send2FactorSms = async (phone, otp) => {
   const apiKey = process.env.TWO_FACTOR_API_KEY || '6b1b0753-9ca1-11f1-9cb1-0200cd936042';
-  if (!apiKey) return { success: false, error: 'TWO_FACTOR_API_KEY not configured in .env' };
+  if (!apiKey) return { success: false, error: 'TWO_FACTOR_API_KEY not configured' };
 
-  // Clean phone number (extract last 10 digits for Indian numbers)
   const cleanDigits = phone.replace(/\D/g, '');
   const targetPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
 
   const url = `https://2factor.in/API/V1/${apiKey}/SMS/${targetPhone}/${otp}`;
-  console.log(`📱 [2FACTOR.IN DISPATCH] Sending real-time SMS to +91 ${targetPhone}...`);
 
   try {
     const res = await fetch(url);
     const data = await res.json();
     if (data && (data.Status === 'Success' || data.Status === 'success')) {
-      console.log(`✅ [2FACTOR.IN SUCCESS] Real-Time SMS delivered to +91 ${targetPhone}! Session ID: ${data.Details}`);
       return { success: true, details: data.Details };
-    } else {
-      console.warn(`⚠️ [2FACTOR.IN NOTICE] Response:`, data);
-      return { success: false, error: data.Details || 'Failed to dispatch SMS' };
     }
+    return { success: false, error: data.Details || 'Failed to dispatch SMS' };
   } catch (err) {
-    console.error(`❌ [2FACTOR.IN ERROR]:`, err.message);
     return { success: false, error: err.message };
   }
 };
@@ -110,10 +104,13 @@ export const sendEmailOtp = async (email, otp, userName = 'Store Owner') => {
   `;
 
   let sentSuccessfully = false;
+  const user = process.env.SMTP_USER || 'jdeep8823@gmail.com';
 
-  if (liveTransporter && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  if (!liveTransporter) initTransporters();
+
+  if (liveTransporter) {
     try {
-      const fromAddress = process.env.SMTP_FROM || `"Stitch & Hook" <${process.env.SMTP_USER}>`;
+      const fromAddress = process.env.SMTP_FROM || `"Stitch & Hook" <${user}>`;
       await liveTransporter.sendMail({
         from: fromAddress,
         to: email,
@@ -121,18 +118,10 @@ export const sendEmailOtp = async (email, otp, userName = 'Store Owner') => {
         html: htmlContent
       });
       sentSuccessfully = true;
-      console.log(`✉️ [GMAIL SMTP SUCCESS] Real-Time Email OTP sent to ${email}!`);
     } catch (err) {
-      console.error(`⚠️ [SMTP DISPATCH NOTICE] Could not deliver to ${email}:`, err.message);
-      if (err.message.includes('535-5.7.8') || err.message.includes('Username and Password not accepted')) {
-        console.log(`💡 NOTE: Gmail requires a 16-character App Password from https://myaccount.google.com/apppasswords`);
-      }
+      console.warn(`SMTP notice for ${email}:`, err.message);
     }
   }
-
-  console.log(`\n======================================================`);
-  console.log(`✉️ [REAL-TIME DISPATCH] Email To: ${email} | Code: [ ${otp} ]`);
-  console.log(`======================================================\n`);
 
   return { success: true, sentSuccessfully };
 };
@@ -144,34 +133,11 @@ export const sendSmsOtp = async (phone, otp, userName = 'Store Owner') => {
   const cleanDigits = phone.replace(/\D/g, '');
   const targetPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
 
-  // 1. If 2Factor.in API key is configured, use 2Factor.in
   const apiKey = process.env.TWO_FACTOR_API_KEY || '6b1b0753-9ca1-11f1-9cb1-0200cd936042';
   if (apiKey) {
     const res = await send2FactorSms(targetPhone, otp);
     if (res.success) return res;
   }
-
-  // 2. If Twilio is configured, use Twilio
-  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
-    try {
-      const formattedPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : `+${phone}`);
-      const twilioModule = await import('twilio');
-      const client = twilioModule.default(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-      await client.messages.create({
-        body: `[Stitch & Hook] Your real-time security code is: ${otp}. Valid for 5 mins.`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: formattedPhone
-      });
-      console.log(`📱 [TWILIO SUCCESS] Live SMS sent to ${formattedPhone}`);
-      return { success: true };
-    } catch (err) {
-      console.error(`⚠️ Twilio notice:`, err.message);
-    }
-  }
-
-  console.log(`\n======================================================`);
-  console.log(`📱 [REAL-TIME DISPATCH] SMS To: +91 ${targetPhone} | Code: [ ${otp} ]`);
-  console.log(`======================================================\n`);
 
   return { success: true };
 };
@@ -196,15 +162,15 @@ export const initiateTwoFactorAuth = async (user, requestedMethod = 'both') => {
 
   db.saveOtp(user.id, otpPayload);
 
-  // Send real-time Email OTP
+  // Send real-time Email OTP (safe background promises)
   if (requestedMethod === 'email' || requestedMethod === 'both') {
-    await sendEmailOtp(user.email, otpCode, user.name);
+    sendEmailOtp(user.email, otpCode, user.name).catch(() => {});
   }
 
-  // Send real-time SMS OTP
+  // Send real-time SMS OTP (safe background promises)
   if (requestedMethod === 'sms' || requestedMethod === 'both') {
     const targetPhone = user.phone || '9014567531';
-    await sendSmsOtp(targetPhone, otpCode, user.name);
+    sendSmsOtp(targetPhone, otpCode, user.name).catch(() => {});
   }
 
   return {
