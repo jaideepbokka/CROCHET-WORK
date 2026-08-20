@@ -27,7 +27,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logger for development
+// Request logger
 app.use((req, res, next) => {
   console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
   next();
@@ -50,12 +50,21 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`\n🧵 ✨ ==============================================`);
-  console.log(`✨ Stitch & Hook Backend Server running on http://localhost:${PORT}`);
-  console.log(`📱 WhatsApp Direct Ordering: +91 ${process.env.WHATSAPP_BUSINESS_NUMBER || '9014567531'}`);
-  console.log(`🔑 2Factor.in SMS Gateway: ${process.env.TWO_FACTOR_API_KEY ? 'Active (' + process.env.TWO_FACTOR_API_KEY.slice(0, 8) + '...)' : 'Not Configured'}`);
-  console.log(`✉️ SMTP Email Gateway: ${process.env.SMTP_USER || 'Not Configured'}`);
-  console.log(`🧵 ==============================================\n`);
+// Root ping for Vercel
+app.get('/api', (req, res) => {
+  res.status(200).json({ message: 'Stitch & Hook API Serverless Gateway Active 🧵✨' });
 });
+
+// Start Server when running locally (not in serverless export)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`\n🧵 ✨ ==============================================`);
+    console.log(`✨ Stitch & Hook Backend Server running on http://localhost:${PORT}`);
+    console.log(`📱 WhatsApp Direct Ordering: +91 ${process.env.WHATSAPP_BUSINESS_NUMBER || '9014567531'}`);
+    console.log(`🔑 2Factor.in SMS Gateway: ${process.env.TWO_FACTOR_API_KEY ? 'Active (' + process.env.TWO_FACTOR_API_KEY.slice(0, 8) + '...)' : 'Not Configured'}`);
+    console.log(`✉️ SMTP Email Gateway: ${process.env.SMTP_USER || 'Not Configured'}`);
+    console.log(`🧵 ==============================================\n`);
+  });
+}
+
+export default app;

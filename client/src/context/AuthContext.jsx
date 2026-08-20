@@ -2,11 +2,20 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
+const parseSafeJson = async (res) => {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(res.ok ? 'Unexpected response format' : `Server response error (${res.status})`);
+  }
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('stitch_token') || null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalView, setAuthModalView] = useState('login'); // 'login', 'register', '2fa'
+  const [authModalView, setAuthModalView] = useState('login'); // 'login', 'register', '2fa', 'forgot-password', 'reset-password'
   const [pending2FAData, setPending2FAData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,7 +35,7 @@ export function AuthProvider({ children }) {
           }
         });
         if (res.ok) {
-          const data = await res.json();
+          const data = await parseSafeJson(res);
           setUser(data.user);
           setToken(storedToken);
         } else {
@@ -52,7 +61,7 @@ export function AuthProvider({ children }) {
       body: JSON.stringify({ email, password, preferredOtpMethod })
     });
 
-    const data = await res.json();
+    const data = await parseSafeJson(res);
     if (!res.ok) {
       throw new Error(data.error || 'Login failed');
     }
@@ -81,7 +90,7 @@ export function AuthProvider({ children }) {
       body: JSON.stringify({ name, email, phone, password, preferredOtpMethod })
     });
 
-    const data = await res.json();
+    const data = await parseSafeJson(res);
     if (!res.ok) {
       throw new Error(data.error || 'Registration failed');
     }
@@ -121,10 +130,12 @@ export function AuthProvider({ children }) {
       },
       body: JSON.stringify(updates)
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Update failed');
-    setUser(data.user);
-    return data.user;
+    const data = await parseSafeJson(res);
+    if (res.ok) {
+      setUser(data.user);
+      return data.user;
+    }
+    throw new Error(data.error || 'Profile update failed');
   };
 
   // Add Address
@@ -138,14 +149,16 @@ export function AuthProvider({ children }) {
       },
       body: JSON.stringify(addressData)
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to add address');
-    setUser(data.user);
-    return data.user;
+    const data = await parseSafeJson(res);
+    if (res.ok) {
+      setUser(data.user);
+      return data.user;
+    }
+    throw new Error(data.error || 'Failed to add address');
   };
 
   // Delete Address
-  const removeAddress = async (addressId) => {
+  const deleteAddress = async (addressId) => {
     if (!token) return;
     const res = await fetch(`/api/auth/addresses/${addressId}`, {
       method: 'DELETE',
@@ -153,10 +166,12 @@ export function AuthProvider({ children }) {
         'Authorization': `Bearer ${token}`
       }
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to remove address');
-    setUser(data.user);
-    return data.user;
+    const data = await parseSafeJson(res);
+    if (res.ok) {
+      setUser(data.user);
+      return data.user;
+    }
+    throw new Error(data.error || 'Failed to remove address');
   };
 
   const openAuthModal = (view = 'login') => {
@@ -181,10 +196,10 @@ export function AuthProvider({ children }) {
         login,
         register,
         logout,
-        handleTwoFactorSuccess,
         updateProfile,
         addAddress,
-        removeAddress,
+        deleteAddress,
+        handleTwoFactorSuccess,
         openAuthModal,
         closeAuthModal,
         setAuthModalView
