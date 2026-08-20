@@ -1,0 +1,274 @@
+{
+  "users": [
+    {
+      "id": "usr-admin-1",
+      "name": "Deepu (Administrator)",
+      "email": "jdeep8823@gmail.com",
+      "phone": "9014567531",
+      "password": "$2a$10$DdA3d6c3AjBU8ayskmiDbexTfPnQaNHB1QPjnmBjLxHsd.snrYYP6",
+      "role": "admin",
+      "twoFactorEnabled": true,
+      "preferredOtpMethod": "both",
+      "addresses": [
+        {
+          "id": "addr-admin-1",
+          "isDefault": true,
+          "fullName": "Deepu (Stitch & Hook)",
+          "phone": "9014567531",
+          "street": "Stitch & Hook Artisan Studio, Main Road",
+          "city": "Hyderabad",
+          "state": "Telangana",
+          "pincode": "500001"
+        }
+      ],
+      "wishlist": [],
+      "cart": [],
+      "createdAt": "2026-08-20T17:29:07.135Z"
+    }
+  ],
+  "products": [
+    {
+      "id": "prod-lb-1",
+      "name": "Lavender & Cream Waffle Laptop Sleeve",
+      "category": "Laptop Bags",
+      "categorySlug": "laptop-bags",
+      "price": 150,
+      "originalPrice": 220,
+      "rating": 4.9,
+      "reviewsCount": 38,
+      "image": "/images/laptop_bag_lavender.jpg",
+      "description": "Handcrafted with thick double-waffle stitch using soft milk cotton yarn. Features a rustic wooden button closure with elastic loop and shock-absorbing textured cushioning to keep your 13\"–15\" laptop safe.",
+      "dimensions": "14\" x 10.5\" (Fits 13-14 inch laptops / MacBooks)",
+      "yarnMaterial": "100% Premium Milk Cotton & Acrylic Blend",
+      "inStock": true,
+      "badge": "Bestseller",
+      "colorOptions": [
+        "Lavender & Cream",
+        "Oatmeal & Lilac",
+        "Pastel Sage"
+      ],
+      "careInstructions": "Gentle hand wash with cold water. Lay flat on dry towel to preserve shape.",
+      "updatedAt": "2026-08-20T16:08:59.932Z"
+    },
+    {
+      "id": "prod-lb-2",
+      "name": "Pastel Horizon Striped Crochet Laptop Bag",
+      "category": "Laptop Bags",
+      "categorySlug": "laptop-bags",
+      "price": 195,
+      "originalPrice": 240,
+      "rating": 4.8,
+      "reviewsCount": 29,
+      "image": "/images/laptop_bag_striped.jpg",
+      "description": "A vibrant yet gentle harmonic striped laptop case woven in sage teal, dusty peach, warm cream, and soft lavender. Fitted with a smooth hidden antique brass zipper and inner cotton lining.",
+      "dimensions": "14.5\" x 10.8\" (Universal 13-15 inch fit)",
+      "yarnMaterial": "100% Combed Artisan Cotton Yarn",
+      "inStock": true,
+      "badge": "Artisan Pick",
+      "colorOptions": [
+        "Pastel Sunset",
+        "Ocean Breeze",
+        "Berry Swirl"
+      ],
+      "careInstructions": "Spot clean with mild detergent or hand wash cold."
+    },
+    {
+      "id": "prod-lb-3",
+      "name": "Forest Sage Cable-Knit Laptop Case",
+      "category": "Laptop Bags",
+      "categorySlug": "laptop-bags",
+      "price": 170,
+      "originalPrice": 210,
+      "rating": 5,
+      "reviewsCount": 44,
+      "image": "/images/laptop_bag_forest_teal.jpg",
+      "description": "Intricate braided cable stitches in earthy sage teal yarn. Features reinforced corners, secure button flap, and ultra-soft inner texture that prevents micro-scratches.",
+      "dimensions": "13.8\" x 9.8\" (Slim fit for MacBook Air & Pro 13-14\")",
+      "yarnMaterial": "Organic Soft Cotton Yarn",
+      "inStock": true,
+      "badge": "Popular",
+      "colorOptions": [
+        "Forest Teal",
+        "Dusty Lavender",
+        "Sand Dune"
+      ],
+      "careInstructions": "Hand wash gently in lukewarm water."
+    },
+    {
+      "id": "prod-bc-1",
+      "name": "Sweet Berry Strawberry Earbuds Case",
+      "category": "Buds Cases",
+      "categorySlug": "buds-cases",
+      "price": 75,
+      "originalPrice": 99,
+      "rating": 4.9,
+      "reviewsCount": 52,
+      "image": "/images/buds_case_strawberry.jpg",
+      "description": "Whimsical strawberry cozy for AirPods & wireless earbuds! Features hand-embroidered seed specks, leafy green top closure, beaded lanyard strap, and charging port cutout at the bottom.",
+      "dimensions": "Universal fit for AirPods 1/2/3/Pro & Galaxy Buds",
+      "yarnMaterial": "100% Non-pilling Milk Cotton",
+      "inStock": true,
+      "badge": "Cute & Trendy",
+      "colorOptions": [
+        "Classic Berry Red",
+        "Pastel Pink",
+        "Lilac Strawberry"
+      ],
+      "careInstructions": "Spot clean with damp cloth."
+    },
+    {
+      "id": "prod-bc-2",
+      "name": "Blossom Tulip Crochet Buds Case",
+      "category": "Buds Cases",
+      "categorySlug": "buds-cases",
+      "price": 90,
+      "originalPrice": 120,
+      "rating": 4.9,
+      "reviewsCount": 31,
+      "image": "/images/buds_case_tulip.jpg",
+      "description": "Delicate hand-stitched 3D tulip petals resting on a warm cream crochet base with wooden button lock and bottom charging access slit.",
+      "dimensions": "Universal fit for standard earbuds cases",
+      "yarnMaterial": "Soft Natural Cotton Yarn",
+      "inStock": true,
+      "badge": "Staff Favorite",
+      "colorOptions": [
+        "Tulip Trio (Pink/Lavender)",
+        "Sun Yellow Tulip",
+        "Baby Blue Tulip"
+      ],
+      "careInstructions": "Hand wash gently and dry flat in shade."
+    },
+    {
+      "id": "prod-kc-1",
+      "name": "Chibi Amigurumi Spiderman Keychain",
+      "category": "Spiderman Keychains",
+      "categorySlug": "spiderman-keychains",
+      "price": 80,
+      "originalPrice": 110,
+      "rating": 5,
+      "reviewsCount": 67,
+      "image": "/images/spiderman_keychain.jpg",
+      "description": "Iconic handmade Spiderman amigurumi doll with hand-embroidered web patterns, bold felt eye emblems, premium hollow fiber filling, and sturdy metal split keyring.",
+      "dimensions": "3.5\" height x 2.2\" width",
+      "yarnMaterial": "High-density Combed Cotton Yarn & Hypoallergenic Fiberfill",
+      "inStock": true,
+      "badge": "Top Gift",
+      "colorOptions": [
+        "Classic Red & Blue",
+        "Stealth Black & Red"
+      ],
+      "careInstructions": "Spot clean only with soft damp cloth."
+    },
+    {
+      "id": "prod-kc-2",
+      "name": "Miles Morales Shadow Spidey Keychain",
+      "category": "Spiderman Keychains",
+      "categorySlug": "spiderman-keychains",
+      "price": 80,
+      "originalPrice": 110,
+      "rating": 4.9,
+      "reviewsCount": 48,
+      "image": "/images/spiderman_miles_keychain.jpg",
+      "description": "Sleek black & crimson Miles Morales Spider-suit amigurumi charm with golden swivel lobster clasp. Perfect companion for backpacks, tote bags, and keys.",
+      "dimensions": "3.6\" height x 2.2\" width",
+      "yarnMaterial": "Mercerized Cotton Yarn & Hollow Fiberfill",
+      "inStock": true,
+      "badge": "Trending",
+      "colorOptions": [
+        "Miles Black & Crimson"
+      ],
+      "careInstructions": "Spot clean only."
+    },
+    {
+      "id": "prod-kc-3",
+      "name": "Sunny Smile Sunflower Crochet Keychain",
+      "category": "Keychains",
+      "categorySlug": "keychains",
+      "price": 70,
+      "originalPrice": 95,
+      "rating": 4.9,
+      "reviewsCount": 42,
+      "image": "/images/keychain_sunflower.jpg",
+      "description": "Brighten your day with this happy handmade sunflower charm! Dual-sided textured crochet petals, cute embroidered smiley face, green leaf accent, and golden lobster clasp.",
+      "dimensions": "2.8\" diameter",
+      "yarnMaterial": "100% Organic Soft Cotton",
+      "inStock": true,
+      "badge": "Popular",
+      "colorOptions": [
+        "Sunshine Yellow",
+        "Golden Honey",
+        "Pastel Lemon"
+      ],
+      "careInstructions": "Spot clean with lukewarm soapy water."
+    },
+    {
+      "id": "prod-kc-4",
+      "name": "Daisy Bell Blossom Crochet Charm",
+      "category": "Keychains",
+      "categorySlug": "keychains",
+      "price": 70,
+      "originalPrice": 95,
+      "rating": 4.8,
+      "reviewsCount": 26,
+      "image": "/images/keychain_daisy.jpg",
+      "description": "Dainty white daisy flower with sunny yellow center, miniature brass bell charm, and woven green leafy lanyard with antique bronze clasp.",
+      "dimensions": "2.5\" flower width x 4.5\" total length",
+      "yarnMaterial": "Soft Milk Cotton & Antique Brass Hardware",
+      "inStock": true,
+      "badge": "Artisan Pick",
+      "colorOptions": [
+        "Pure White Daisy",
+        "Lilac Daisy",
+        "Blush Pink Daisy"
+      ],
+      "careInstructions": "Wipe clean gently with dry or slightly damp cloth."
+    }
+  ],
+  "orders": [],
+  "otps": {
+    "usr-1787240831918": {
+      "userId": "usr-1787240831918",
+      "email": "deepuuuuu8823@gmail.com",
+      "phone": "7671999666",
+      "emailOtp": "362446",
+      "smsOtp": "350105",
+      "method": "email",
+      "expiresAt": 1787241131920,
+      "attempts": 0,
+      "createdAt": 1787240831920
+    },
+    "usr-1787240898250": {
+      "userId": "usr-1787240898250",
+      "email": "deepuuu8823@gmail.com",
+      "phone": "7671999666",
+      "emailOtp": "471506",
+      "smsOtp": "435160",
+      "method": "email",
+      "expiresAt": 1787241198252,
+      "attempts": 0,
+      "createdAt": 1787240898252
+    },
+    "usr-1787241264851": {
+      "userId": "usr-1787241264851",
+      "email": "joshnakola19@gmail.com",
+      "phone": "6305616316",
+      "emailOtp": "955256",
+      "smsOtp": "260137",
+      "method": "email",
+      "expiresAt": 1787241564852,
+      "attempts": 0,
+      "createdAt": 1787241264853
+    },
+    "usr-1787243899621": {
+      "userId": "usr-1787243899621",
+      "email": "deepuuu8823@gmail.com",
+      "phone": "6305616316",
+      "emailOtp": "126863",
+      "smsOtp": "126863",
+      "method": "sms",
+      "expiresAt": 1787244199623,
+      "attempts": 0,
+      "createdAt": 1787243899623
+    }
+  }
+}
