@@ -5,8 +5,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+try {
+  dotenv.config({ path: path.join(__dirname, '..', '.env') });
+  dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+} catch {}
 
 import mysql from 'mysql2/promise';
 import bcrypt from 'bcryptjs';
@@ -15,15 +17,21 @@ let pool = null;
 let isConnected = false;
 
 export const initMySQL = async () => {
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
   const host = process.env.MYSQL_HOST || 'localhost';
   const port = Number(process.env.MYSQL_PORT) || 3306;
   const user = process.env.MYSQL_USER || 'root';
   const password = process.env.MYSQL_PASSWORD || '';
   const database = process.env.MYSQL_DATABASE || 'stitch_hook';
 
+  // In Vercel serverless, skip localhost connection attempts to avoid container timeout
+  if (isServerless && (host === 'localhost' || host === '127.0.0.1')) {
+    return false;
+  }
+
   try {
     // 1. Connect to MySQL server to ensure DB exists
-    const rootConn = await mysql.createConnection({ host, port, user, password });
+    const rootConn = await mysql.createConnection({ host, port, user, password, connectTimeout: 3000 });
     await rootConn.query(`CREATE DATABASE IF NOT EXISTS \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     await rootConn.end();
 
@@ -35,7 +43,8 @@ export const initMySQL = async () => {
       password,
       database,
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: 5,
+      connectTimeout: 3000,
       queueLimit: 0
     });
 
@@ -147,12 +156,10 @@ export const initMySQL = async () => {
           JSON.stringify([])
         ]
       );
-      console.log('👑 [MYSQL] Seeded Admin User in MySQL: jdeep8823@gmail.com / Luckydeepu');
     }
 
     return true;
   } catch (err) {
-    console.warn(`⚠️ [MYSQL NOTICE] Could not connect to MySQL server (${err.message}). Using unified persistent database store.`);
     isConnected = false;
     return false;
   }
