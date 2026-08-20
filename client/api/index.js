@@ -206,24 +206,21 @@ const store = {
   otps: {}
 };
 
-// Transporter
+// Transporter with direct Gmail service
 const getTransporter = () => {
   const user = process.env.SMTP_USER || 'jdeep8823@gmail.com';
   const pass = process.env.SMTP_PASS || 'ehzm xbjz dmly spct';
   try {
     return nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: false,
-      auth: { user, pass },
-      tls: { rejectUnauthorized: false }
+      service: 'gmail',
+      auth: { user, pass }
     });
   } catch {
     return null;
   }
 };
 
-// Dispatch OTP function
+// Dispatch OTP function (Awaited for serverless execution guarantee)
 const sendOtp = async (user, method = 'both') => {
   const otpCode = crypto.randomInt(100000, 999999).toString();
   const expiresAt = Date.now() + 5 * 60 * 1000;
@@ -239,12 +236,21 @@ const sendOtp = async (user, method = 'both') => {
     attempts: 0
   };
 
+  const deliveryTasks = [];
+
   // 1. Send SMS via 2Factor.in
   if (method === 'sms' || method === 'both') {
     const apiKey = process.env.TWO_FACTOR_API_KEY || '6b1b0753-9ca1-11f1-9cb1-0200cd936042';
     const cleanDigits = (user.phone || '9014567531').replace(/\D/g, '');
     const targetPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
-    fetch(`https://2factor.in/API/V1/${apiKey}/SMS/${targetPhone}/${otpCode}`).catch(() => {});
+    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${targetPhone}/${otpCode}`;
+
+    deliveryTasks.push(
+      fetch(smsUrl)
+        .then(r => r.json())
+        .then(data => console.log('📱 2Factor.in SMS Result:', data))
+        .catch(err => console.error('📱 SMS Dispatch Error:', err.message))
+    );
   }
 
   // 2. Send Email via Gmail SMTP
@@ -252,23 +258,32 @@ const sendOtp = async (user, method = 'both') => {
     const transporter = getTransporter();
     if (transporter) {
       const fromUser = process.env.SMTP_USER || 'jdeep8823@gmail.com';
-      transporter.sendMail({
-        from: `"Stitch & Hook" <${fromUser}>`,
-        to: user.email,
-        subject: `Your Stitch & Hook Security Code: ${otpCode}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 500px; padding: 24px; background: #FAF8F5; border-radius: 12px; border: 1px solid #E0D4F5;">
-            <h2 style="color: #1D4548;">🧵 Stitch & Hook Security Code</h2>
-            <p>Your 2FA verification code is:</p>
-            <div style="background: #EFE9FA; padding: 12px 24px; border-radius: 8px; font-size: 28px; font-weight: bold; letter-spacing: 4px; color: #5F32C4; display: inline-block;">
-              ${otpCode}
+      deliveryTasks.push(
+        transporter.sendMail({
+          from: `"Stitch & Hook" <${fromUser}>`,
+          to: user.email,
+          subject: `Your Stitch & Hook Security Code: ${otpCode}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 500px; padding: 24px; background: #FAF8F5; border-radius: 12px; border: 1px solid #E0D4F5;">
+              <h2 style="color: #1D4548; margin-top: 0;">🧵 Stitch & Hook Security Code</h2>
+              <p>Hello <strong>${user.name || 'Artisan Friend'}</strong>,</p>
+              <p>Your 2-Factor Authentication verification code is:</p>
+              <div style="background: #EFE9FA; padding: 14px 28px; border-radius: 8px; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #5F32C4; display: inline-block; margin: 12px 0;">
+                ${otpCode}
+              </div>
+              <p style="font-size: 13px; color: #666; margin-top: 16px;">Valid for 5 minutes. Never share this code with anyone.</p>
+              <p style="font-size: 12px; color: #999;">WhatsApp Support: +91 9014567531</p>
             </div>
-            <p style="font-size: 12px; color: #888; margin-top: 16px;">Valid for 5 minutes. Never share this code.</p>
-          </div>
-        `
-      }).catch(() => {});
+          `
+        })
+        .then(info => console.log('✉️ Gmail SMTP Delivered! Message ID:', info.messageId))
+        .catch(err => console.error('✉️ Gmail SMTP Error:', err.message))
+      );
     }
   }
+
+  // Await all dispatch tasks to ensure network packets complete before serverless function finishes
+  await Promise.allSettled(deliveryTasks);
 
   return {
     userId: user.id,
