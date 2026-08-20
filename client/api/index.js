@@ -430,11 +430,38 @@ const loginHandler = async (req, res) => {
 app.post('/api/auth/login', loginHandler);
 app.post('/auth/login', loginHandler);
 
+// Auth: Resend OTP
+const resendOtpHandler = async (req, res) => {
+  try {
+    const { userId, method, email } = req.body;
+    let user = store.users.find(u => u.id === userId || (email && u.email.toLowerCase() === email.toLowerCase()));
+    if (!user) {
+      user = {
+        id: userId || 'usr-' + Date.now(),
+        email: email || 'customer@stitchhook.com',
+        name: 'Customer',
+        phone: '9014567531',
+        role: 'customer'
+      };
+    }
+
+    const twoFactorDetails = await sendOtp(user, method || 'both');
+    return res.status(200).json({
+      message: 'New real-time 2FA code sent.',
+      ...twoFactorDetails
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Failed to resend code.' });
+  }
+};
+app.post('/api/auth/send-otp', resendOtpHandler);
+app.post('/auth/send-otp', resendOtpHandler);
+
 // Auth: Verify OTP (Resilient across Serverless Instances)
 const verifyOtpHandler = (req, res) => {
   try {
     const { userId, singleCode, emailCode, smsCode, twoFactorToken } = req.body;
-    const inputCode = (singleCode || emailCode || smsCode || '').trim();
+    const inputCode = String(singleCode || emailCode || smsCode || '').trim();
 
     if (!inputCode || inputCode.length < 6) {
       return res.status(400).json({ error: 'Please enter a valid 6-digit code.' });
@@ -446,7 +473,7 @@ const verifyOtpHandler = (req, res) => {
     // 1. Check in-memory store
     const stored = store.otps[userId];
     if (stored && Date.now() <= stored.expiresAt) {
-      if (inputCode === stored.emailOtp || inputCode === stored.smsOtp) {
+      if (String(stored.emailOtp).trim() === inputCode || String(stored.smsOtp).trim() === inputCode) {
         isValid = true;
         delete store.otps[userId];
       }
@@ -456,7 +483,7 @@ const verifyOtpHandler = (req, res) => {
     if (!isValid && twoFactorToken) {
       try {
         const decoded = jwt.verify(twoFactorToken, JWT_SECRET);
-        if (decoded.otp === inputCode) {
+        if (String(decoded.otp).trim() === inputCode) {
           isValid = true;
           verifiedUser = decoded;
         }
@@ -544,9 +571,10 @@ const resetPasswordHandler = async (req, res) => {
     const { userId, otp, newPassword, twoFactorToken } = req.body;
     let isValid = false;
     let verifiedEmail = null;
+    const cleanOtp = String(otp || '').trim();
 
     const stored = store.otps[userId];
-    if (stored && (otp.trim() === stored.emailOtp || otp.trim() === stored.smsOtp)) {
+    if (stored && (cleanOtp === String(stored.emailOtp).trim() || cleanOtp === String(stored.smsOtp).trim())) {
       isValid = true;
       delete store.otps[userId];
     }
@@ -554,7 +582,7 @@ const resetPasswordHandler = async (req, res) => {
     if (!isValid && twoFactorToken) {
       try {
         const decoded = jwt.verify(twoFactorToken, JWT_SECRET);
-        if (decoded.otp === otp.trim()) {
+        if (String(decoded.otp).trim() === cleanOtp) {
           isValid = true;
           verifiedEmail = decoded.email;
         }
