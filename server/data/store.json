@@ -5,7 +5,7 @@
       "name": "Deepu (Administrator)",
       "email": "jdeep8823@gmail.com",
       "phone": "9014567531",
-      "password": "$2a$10$OEx5C82INsc8.D1AlMSeYuXozH3S3JsjuEdPvyOhf28Ka06UroATG",
+      "password": "$2a$10$ZPCfIIbs0R3SDPMQ6JXc9uO.etPDJDIIi1SMabVG.RyNgY7b3WhLK",
       "role": "admin",
       "twoFactorEnabled": true,
       "preferredOtpMethod": "both",
@@ -23,7 +23,7 @@
       ],
       "wishlist": [],
       "cart": [],
-      "createdAt": "2026-08-20T17:54:47.502Z"
+      "createdAt": "2026-08-20T18:02:32.819Z"
     }
   ],
   "products": [

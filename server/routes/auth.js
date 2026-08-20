@@ -89,7 +89,7 @@ router.post('/register', async (req, res) => {
     });
   } catch (err) {
     console.error('Registration error:', err);
-    return res.status(500).json({ error: 'Failed to create account. Please try again.' });
+    return res.status(500).json({ error: err.message || 'Failed to create account. Please try again.' });
   }
 });
 
@@ -125,7 +125,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (err) {
     console.error('Login error:', err);
-    return res.status(500).json({ error: 'Login process failed. Please try again.' });
+    return res.status(500).json({ error: err.message || 'Login process failed. Please try again.' });
   }
 });
 
