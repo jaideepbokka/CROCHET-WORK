@@ -85,7 +85,8 @@ export default function TwoFactorVerify({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: twoFactorData.userId,
-          singleCode: code
+          singleCode: code,
+          twoFactorToken: twoFactorData.twoFactorToken
         })
       });
 
