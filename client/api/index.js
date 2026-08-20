@@ -1,3 +1,604 @@
-import app from '../../server/server.js';
+import express from 'express';
+import cors from 'cors';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+
+const app = express();
+const JWT_SECRET = process.env.JWT_SECRET || 'stitch_hook_super_secret_jwt_artisan_2026_key';
+
+// Middleware
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Initial seed products
+const initialProducts = [
+  {
+    id: 'prod-lb-1',
+    name: 'Lavender & Cream Waffle Laptop Sleeve',
+    category: 'Laptop Bags',
+    categorySlug: 'laptop-bags',
+    price: 180,
+    originalPrice: 220,
+    rating: 4.9,
+    reviewsCount: 38,
+    image: '/images/laptop_bag_lavender.jpg',
+    description: 'Handcrafted with thick double-waffle stitch using soft milk cotton yarn. Features a rustic wooden button closure with elastic loop and shock-absorbing textured cushioning to keep your 13"–15" laptop safe.',
+    dimensions: '14" x 10.5" (Fits 13-14 inch laptops / MacBooks)',
+    yarnMaterial: '100% Premium Milk Cotton & Acrylic Blend',
+    inStock: true,
+    badge: 'Bestseller',
+    colorOptions: ['Lavender & Cream', 'Oatmeal & Lilac', 'Pastel Sage'],
+    careInstructions: 'Gentle hand wash with cold water. Lay flat on dry towel to preserve shape.'
+  },
+  {
+    id: 'prod-lb-2',
+    name: 'Pastel Horizon Striped Crochet Laptop Bag',
+    category: 'Laptop Bags',
+    categorySlug: 'laptop-bags',
+    price: 195,
+    originalPrice: 240,
+    rating: 4.8,
+    reviewsCount: 29,
+    image: '/images/laptop_bag_striped.jpg',
+    description: 'A vibrant yet gentle harmonic striped laptop case woven in sage teal, dusty peach, warm cream, and soft lavender. Fitted with a smooth hidden antique brass zipper and inner cotton lining.',
+    dimensions: '14.5" x 10.8" (Universal 13-15 inch fit)',
+    yarnMaterial: '100% Combed Artisan Cotton Yarn',
+    inStock: true,
+    badge: 'Artisan Pick',
+    colorOptions: ['Pastel Sunset', 'Ocean Breeze', 'Berry Swirl'],
+    careInstructions: 'Spot clean with mild detergent or hand wash cold.'
+  },
+  {
+    id: 'prod-lb-3',
+    name: 'Forest Sage Cable-Knit Laptop Case',
+    category: 'Laptop Bags',
+    categorySlug: 'laptop-bags',
+    price: 170,
+    originalPrice: 210,
+    rating: 5.0,
+    reviewsCount: 44,
+    image: '/images/laptop_bag_forest_teal.jpg',
+    description: 'Intricate braided cable stitches in earthy sage teal yarn. Features reinforced corners, secure button flap, and ultra-soft inner texture that prevents micro-scratches.',
+    dimensions: '13.8" x 9.8" (Slim fit for MacBook Air & Pro 13-14")',
+    yarnMaterial: 'Organic Soft Cotton Yarn',
+    inStock: true,
+    badge: 'Popular',
+    colorOptions: ['Forest Teal', 'Dusty Lavender', 'Sand Dune'],
+    careInstructions: 'Hand wash gently in lukewarm water.'
+  },
+  {
+    id: 'prod-bc-1',
+    name: 'Sweet Berry Strawberry Earbuds Case',
+    category: 'Buds Cases',
+    categorySlug: 'buds-cases',
+    price: 75,
+    originalPrice: 99,
+    rating: 4.9,
+    reviewsCount: 52,
+    image: '/images/buds_case_strawberry.jpg',
+    description: 'Whimsical strawberry cozy for AirPods & wireless earbuds! Features hand-embroidered seed specks, leafy green top closure, beaded lanyard strap, and charging port cutout at the bottom.',
+    dimensions: 'Universal fit for AirPods 1/2/3/Pro & Galaxy Buds',
+    yarnMaterial: '100% Non-pilling Milk Cotton',
+    inStock: true,
+    badge: 'Cute & Trendy',
+    colorOptions: ['Classic Berry Red', 'Pastel Pink', 'Lilac Strawberry'],
+    careInstructions: 'Spot clean with damp cloth.'
+  },
+  {
+    id: 'prod-bc-2',
+    name: 'Blossom Tulip Crochet Buds Case',
+    category: 'Buds Cases',
+    categorySlug: 'buds-cases',
+    price: 90,
+    originalPrice: 120,
+    rating: 4.9,
+    reviewsCount: 31,
+    image: '/images/buds_case_tulip.jpg',
+    description: 'Delicate hand-stitched 3D tulip petals resting on a warm cream crochet base with wooden button lock and bottom charging access slit.',
+    dimensions: 'Universal fit for standard earbuds cases',
+    yarnMaterial: 'Soft Natural Cotton Yarn',
+    inStock: true,
+    badge: 'Staff Favorite',
+    colorOptions: ['Tulip Trio (Pink/Lavender)', 'Sun Yellow Tulip', 'Baby Blue Tulip'],
+    careInstructions: 'Hand wash gently and dry flat in shade.'
+  },
+  {
+    id: 'prod-kc-1',
+    name: 'Chibi Amigurumi Spiderman Keychain',
+    category: 'Spiderman Keychains',
+    categorySlug: 'spiderman-keychains',
+    price: 80,
+    originalPrice: 110,
+    rating: 5.0,
+    reviewsCount: 67,
+    image: '/images/spiderman_keychain.jpg',
+    description: 'Iconic handmade Spiderman amigurumi doll with hand-embroidered web patterns, bold felt eye emblems, premium hollow fiber filling, and sturdy metal split keyring.',
+    dimensions: '3.5" height x 2.2" width',
+    yarnMaterial: 'High-density Combed Cotton Yarn & Hypoallergenic Fiberfill',
+    inStock: true,
+    badge: 'Top Gift',
+    colorOptions: ['Classic Red & Blue', 'Stealth Black & Red'],
+    careInstructions: 'Spot clean only with soft damp cloth.'
+  },
+  {
+    id: 'prod-kc-2',
+    name: 'Miles Morales Shadow Spidey Keychain',
+    category: 'Spiderman Keychains',
+    categorySlug: 'spiderman-keychains',
+    price: 80,
+    originalPrice: 110,
+    rating: 4.9,
+    reviewsCount: 48,
+    image: '/images/spiderman_miles_keychain.jpg',
+    description: 'Sleek black & crimson Miles Morales Spider-suit amigurumi charm with golden swivel lobster clasp. Perfect companion for backpacks, tote bags, and keys.',
+    dimensions: '3.6" height x 2.2" width',
+    yarnMaterial: 'Mercerized Cotton Yarn & Hollow Fiberfill',
+    inStock: true,
+    badge: 'Trending',
+    colorOptions: ['Miles Black & Crimson'],
+    careInstructions: 'Spot clean only.'
+  },
+  {
+    id: 'prod-kc-3',
+    name: 'Sunny Smile Sunflower Crochet Keychain',
+    category: 'Keychains',
+    categorySlug: 'keychains',
+    price: 70,
+    originalPrice: 95,
+    rating: 4.9,
+    reviewsCount: 42,
+    image: '/images/keychain_sunflower.jpg',
+    description: 'Brighten your day with this happy handmade sunflower charm! Dual-sided textured crochet petals, cute embroidered smiley face, green leaf accent, and golden lobster clasp.',
+    dimensions: '2.8" diameter',
+    yarnMaterial: '100% Organic Soft Cotton',
+    inStock: true,
+    badge: 'Popular',
+    colorOptions: ['Sunshine Yellow', 'Golden Honey', 'Pastel Lemon'],
+    careInstructions: 'Spot clean with lukewarm soapy water.'
+  },
+  {
+    id: 'prod-kc-4',
+    name: 'Daisy Bell Blossom Crochet Charm',
+    category: 'Keychains',
+    categorySlug: 'keychains',
+    price: 70,
+    originalPrice: 95,
+    rating: 4.8,
+    reviewsCount: 26,
+    image: '/images/keychain_daisy.jpg',
+    description: 'Dainty white daisy flower with sunny yellow center, miniature brass bell charm, and woven green leafy lanyard with antique bronze clasp.',
+    dimensions: '2.5" flower width x 4.5" total length',
+    yarnMaterial: 'Soft Milk Cotton & Antique Brass Hardware',
+    inStock: true,
+    badge: 'Artisan Pick',
+    colorOptions: ['Pure White Daisy', 'Lilac Daisy', 'Blush Pink Daisy'],
+    careInstructions: 'Wipe clean gently with dry or slightly damp cloth.'
+  }
+];
+
+// In-Memory Database Store for Serverless
+const store = {
+  users: [
+    {
+      id: 'usr-admin-1',
+      name: 'Deepu (Administrator)',
+      email: 'jdeep8823@gmail.com',
+      phone: '9014567531',
+      password: bcrypt.hashSync('Luckydeepu', 10),
+      role: 'admin',
+      twoFactorEnabled: true,
+      preferredOtpMethod: 'both',
+      addresses: [],
+      wishlist: [],
+      cart: [],
+      createdAt: new Date().toISOString()
+    }
+  ],
+  products: [...initialProducts],
+  orders: [],
+  otps: {}
+};
+
+// Transporter
+const getTransporter = () => {
+  const user = process.env.SMTP_USER || 'jdeep8823@gmail.com';
+  const pass = process.env.SMTP_PASS || 'ehzm xbjz dmly spct';
+  try {
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false }
+    });
+  } catch {
+    return null;
+  }
+};
+
+// Dispatch OTP function
+const sendOtp = async (user, method = 'both') => {
+  const otpCode = crypto.randomInt(100000, 999999).toString();
+  const expiresAt = Date.now() + 5 * 60 * 1000;
+
+  store.otps[user.id] = {
+    userId: user.id,
+    email: user.email,
+    phone: user.phone || '9014567531',
+    emailOtp: otpCode,
+    smsOtp: otpCode,
+    method,
+    expiresAt,
+    attempts: 0
+  };
+
+  // 1. Send SMS via 2Factor.in
+  if (method === 'sms' || method === 'both') {
+    const apiKey = process.env.TWO_FACTOR_API_KEY || '6b1b0753-9ca1-11f1-9cb1-0200cd936042';
+    const cleanDigits = (user.phone || '9014567531').replace(/\D/g, '');
+    const targetPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+    fetch(`https://2factor.in/API/V1/${apiKey}/SMS/${targetPhone}/${otpCode}`).catch(() => {});
+  }
+
+  // 2. Send Email via Gmail SMTP
+  if (method === 'email' || method === 'both') {
+    const transporter = getTransporter();
+    if (transporter) {
+      const fromUser = process.env.SMTP_USER || 'jdeep8823@gmail.com';
+      transporter.sendMail({
+        from: `"Stitch & Hook" <${fromUser}>`,
+        to: user.email,
+        subject: `Your Stitch & Hook Security Code: ${otpCode}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 500px; padding: 24px; background: #FAF8F5; border-radius: 12px; border: 1px solid #E0D4F5;">
+            <h2 style="color: #1D4548;">🧵 Stitch & Hook Security Code</h2>
+            <p>Your 2FA verification code is:</p>
+            <div style="background: #EFE9FA; padding: 12px 24px; border-radius: 8px; font-size: 28px; font-weight: bold; letter-spacing: 4px; color: #5F32C4; display: inline-block;">
+              ${otpCode}
+            </div>
+            <p style="font-size: 12px; color: #888; margin-top: 16px;">Valid for 5 minutes. Never share this code.</p>
+          </div>
+        `
+      }).catch(() => {});
+    }
+  }
+
+  return {
+    userId: user.id,
+    email: user.email,
+    phone: user.phone ? `******${user.phone.slice(-4)}` : '******7531',
+    expiresInSeconds: 300,
+    requestedMethod: method
+  };
+};
+
+// Auth Middleware
+const authMiddleware = (req, res, next) => {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized. Please log in.' });
+  }
+  try {
+    const decoded = jwt.verify(header.split(' ')[1], JWT_SECRET);
+    const user = store.users.find(u => u.id === decoded.userId);
+    if (!user) return res.status(401).json({ error: 'Session expired.' });
+    const { password, ...safeUser } = user;
+    req.user = safeUser;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid token.' });
+  }
+};
+
+const adminMiddleware = (req, res, next) => {
+  authMiddleware(req, res, () => {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Administrator access required.' });
+    }
+    next();
+  });
+};
+
+/* ============================================================
+   ROUTING: Health, Auth, Products, Orders
+   ============================================================ */
+
+// Health
+const healthHandler = (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    storeName: 'Stitch & Hook',
+    businessWhatsApp: process.env.WHATSAPP_BUSINESS_NUMBER || '9014567531',
+    timestamp: new Date().toISOString()
+  });
+};
+app.get('/api/health', healthHandler);
+app.get('/health', healthHandler);
+app.get('/api', (req, res) => res.json({ message: 'Stitch & Hook Serverless API Active 🧵✨' }));
+
+// Auth: Register
+const registerHandler = async (req, res) => {
+  try {
+    const { name, email, phone, password, preferredOtpMethod } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required.' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    if (store.users.some(u => u.email.toLowerCase() === cleanEmail)) {
+      return res.status(409).json({ error: 'An account with this email already exists.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = {
+      id: 'usr-' + Date.now(),
+      name: name.trim(),
+      email: cleanEmail,
+      phone: phone ? phone.trim() : '',
+      password: hashedPassword,
+      role: 'customer',
+      twoFactorEnabled: true,
+      preferredOtpMethod: preferredOtpMethod || 'both',
+      addresses: [],
+      wishlist: [],
+      cart: [],
+      createdAt: new Date().toISOString()
+    };
+
+    store.users.push(newUser);
+    const twoFactorDetails = await sendOtp(newUser, newUser.preferredOtpMethod);
+
+    return res.status(201).json({
+      message: 'Account created! 2FA code sent.',
+      requires2FA: true,
+      ...twoFactorDetails
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Registration failed.' });
+  }
+};
+app.post('/api/auth/register', registerHandler);
+app.post('/auth/register', registerHandler);
+
+// Auth: Login
+const loginHandler = async (req, res) => {
+  try {
+    const { email, password, preferredOtpMethod } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Please enter both email and password.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const user = store.users.find(u => u.email.toLowerCase() === cleanEmail);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    const twoFactorDetails = await sendOtp(user, preferredOtpMethod || user.preferredOtpMethod || 'both');
+    return res.status(200).json({
+      message: 'Credentials verified! 2FA code sent.',
+      requires2FA: true,
+      role: user.role,
+      ...twoFactorDetails
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Login failed.' });
+  }
+};
+app.post('/api/auth/login', loginHandler);
+app.post('/auth/login', loginHandler);
+
+// Auth: Verify OTP
+const verifyOtpHandler = (req, res) => {
+  try {
+    const { userId, singleCode, emailCode, smsCode } = req.body;
+    const stored = store.otps[userId];
+    if (!stored) {
+      return res.status(400).json({ error: 'No active OTP found or code expired.' });
+    }
+
+    if (Date.now() > stored.expiresAt) {
+      delete store.otps[userId];
+      return res.status(400).json({ error: 'Security code expired (5 min limit).' });
+    }
+
+    const inputCode = (singleCode || emailCode || smsCode || '').trim();
+    if (inputCode !== stored.emailOtp && inputCode !== stored.smsOtp) {
+      return res.status(400).json({ error: 'Incorrect 6-digit code entered.' });
+    }
+
+    delete store.otps[userId];
+    const user = store.users.find(u => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    const { password, ...safeUser } = user;
+
+    return res.status(200).json({
+      message: 'Authentication verified!',
+      token,
+      user: safeUser
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Verification failed.' });
+  }
+};
+app.post('/api/auth/verify-otp', verifyOtpHandler);
+app.post('/auth/verify-otp', verifyOtpHandler);
+
+// Auth: Forgot Password
+const forgotPasswordHandler = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required.' });
+
+    const user = store.users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+    if (!user) return res.status(404).json({ error: 'No account found with this email.' });
+
+    const twoFactorDetails = await sendOtp(user, 'both');
+    return res.status(200).json({
+      message: 'Password reset code sent.',
+      userId: user.id,
+      ...twoFactorDetails
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Failed to process request.' });
+  }
+};
+app.post('/api/auth/forgot-password', forgotPasswordHandler);
+app.post('/auth/forgot-password', forgotPasswordHandler);
+
+// Auth: Reset Password
+const resetPasswordHandler = async (req, res) => {
+  try {
+    const { userId, otp, newPassword } = req.body;
+    const stored = store.otps[userId];
+    if (!stored || (otp.trim() !== stored.emailOtp && otp.trim() !== stored.smsOtp)) {
+      return res.status(400).json({ error: 'Invalid or expired OTP code.' });
+    }
+
+    const user = store.users.find(u => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    delete store.otps[userId];
+
+    return res.status(200).json({ message: 'Password updated successfully!' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Failed to reset password.' });
+  }
+};
+app.post('/api/auth/reset-password', resetPasswordHandler);
+app.post('/auth/reset-password', resetPasswordHandler);
+
+// Auth: Me
+const meHandler = (req, res) => res.json({ user: req.user });
+app.get('/api/auth/me', authMiddleware, meHandler);
+app.get('/auth/me', authMiddleware, meHandler);
+
+// Products: Get All
+const getProductsHandler = (req, res) => {
+  let list = [...store.products];
+  const { category, search } = req.query;
+  if (category && category !== 'all') {
+    list = list.filter(p => p.categorySlug === category || p.category.toLowerCase() === category.toLowerCase());
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    list = list.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
+  }
+  res.json({ products: list });
+};
+app.get('/api/products', getProductsHandler);
+app.get('/products', getProductsHandler);
+
+// Products: Categories
+const getCategoriesHandler = (req, res) => {
+  const cats = [...new Set(store.products.map(p => p.category))];
+  res.json({ categories: cats });
+};
+app.get('/api/products/categories', getCategoriesHandler);
+app.get('/products/categories', getCategoriesHandler);
+
+// Products: Add
+const addProductHandler = (req, res) => {
+  const newProd = {
+    id: 'prod-' + Date.now(),
+    ...req.body,
+    price: Number(req.body.price),
+    categorySlug: (req.body.category || 'laptop-bags').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    inStock: req.body.inStock !== false,
+    createdAt: new Date().toISOString()
+  };
+  store.products.unshift(newProd);
+  res.status(201).json({ message: 'Product created!', product: newProd });
+};
+app.post('/api/products', adminMiddleware, addProductHandler);
+app.post('/products', adminMiddleware, addProductHandler);
+
+// Products: Edit
+const editProductHandler = (req, res) => {
+  const idx = store.products.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Product not found.' });
+  if (req.body.price) req.body.price = Number(req.body.price);
+  store.products[idx] = { ...store.products[idx], ...req.body, updatedAt: new Date().toISOString() };
+  res.json({ message: 'Product updated!', product: store.products[idx] });
+};
+app.put('/api/products/:id', adminMiddleware, editProductHandler);
+app.put('/products/:id', adminMiddleware, editProductHandler);
+
+// Products: Delete
+const deleteProductHandler = (req, res) => {
+  const idx = store.products.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Product not found.' });
+  store.products.splice(idx, 1);
+  res.json({ message: 'Product deleted.' });
+};
+app.delete('/api/products/:id', adminMiddleware, deleteProductHandler);
+app.delete('/products/:id', adminMiddleware, deleteProductHandler);
+
+// Orders: Create
+const createOrderHandler = (req, res) => {
+  const order = {
+    id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+    ...req.body,
+    status: 'WhatsApp Checkout Initiated',
+    createdAt: new Date().toISOString()
+  };
+  store.orders.unshift(order);
+  res.status(201).json({ message: 'Order recorded!', order });
+};
+app.post('/api/orders', createOrderHandler);
+app.post('/orders', createOrderHandler);
+
+// Orders: Get All
+const getAllOrdersHandler = (req, res) => res.json({ orders: store.orders });
+app.get('/api/orders/all', adminMiddleware, getAllOrdersHandler);
+app.get('/orders/all', adminMiddleware, getAllOrdersHandler);
+
+// Orders: Update Status
+const updateOrderStatusHandler = (req, res) => {
+  const order = store.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).json({ error: 'Order not found.' });
+  order.status = req.body.status;
+  res.json({ message: 'Order status updated!', order });
+};
+app.put('/api/orders/:id/status', adminMiddleware, updateOrderStatusHandler);
+app.put('/orders/:id/status', adminMiddleware, updateOrderStatusHandler);
+
+// Orders: Delete
+const deleteOrderHandler = (req, res) => {
+  const idx = store.orders.findIndex(o => o.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Order not found.' });
+  store.orders.splice(idx, 1);
+  res.json({ message: 'Order deleted successfully.' });
+};
+app.delete('/api/orders/:id', adminMiddleware, deleteOrderHandler);
+app.delete('/orders/:id', adminMiddleware, deleteOrderHandler);
+
+// Orders: Clear All
+const clearAllOrdersHandler = (req, res) => {
+  store.orders = [];
+  res.json({ message: 'All orders cleared.' });
+};
+app.delete('/api/orders/all/clear', adminMiddleware, clearAllOrdersHandler);
+app.delete('/orders/all/clear', adminMiddleware, clearAllOrdersHandler);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('API Error:', err);
+  res.status(500).json({ error: err.message || 'Internal Server Error' });
+});
 
 export default app;
