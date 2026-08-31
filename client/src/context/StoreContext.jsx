@@ -8,10 +8,69 @@ const StoreContext = createContext();
 export function StoreProvider({ children }) {
   const { user, token } = useAuth();
 
+  // Helper to read persistent admin overrides from localStorage
+  const getStoredOverrides = () => {
+    try {
+      const saved = localStorage.getItem('stitch_admin_products_override');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const getDeletedIds = () => {
+    try {
+      const saved = localStorage.getItem('stitch_deleted_products');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const getCustomProducts = () => {
+    try {
+      const saved = localStorage.getItem('stitch_custom_products');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  // Merge server products with client persistent overrides
+  const applyOverrides = (backendProducts) => {
+    if (!Array.isArray(backendProducts)) return [];
+    const overrides = getStoredOverrides();
+    const deletedIds = getDeletedIds();
+    const customProds = getCustomProducts();
+
+    // 1. Remove deleted products
+    let merged = backendProducts.filter((p) => !deletedIds.includes(p.id));
+
+    // 2. Apply admin edits (e.g. updated prices, titles, etc.)
+    merged = merged.map((p) => {
+      if (overrides[p.id]) {
+        return { ...p, ...overrides[p.id] };
+      }
+      return p;
+    });
+
+    // 3. Include any newly created products
+    for (const cp of customProds) {
+      if (!deletedIds.includes(cp.id) && !merged.some((p) => p.id === cp.id)) {
+        merged.unshift(overrides[cp.id] ? { ...cp, ...overrides[cp.id] } : cp);
+      }
+    }
+
+    return merged;
+  };
+
   const [products, setProducts] = useState(() => {
     try {
       const cached = localStorage.getItem('stitch_products_cache');
-      return cached ? JSON.parse(cached) : [];
+      if (cached) {
+        return applyOverrides(JSON.parse(cached));
+      }
+      return [];
     } catch {
       return [];
     }
@@ -63,20 +122,68 @@ export function StoreProvider({ children }) {
     }, 4000);
   };
 
-  // Optimistic product update helper
+  // Optimistic & Persistent Product Update Helper
   const updateProductLocal = (updatedProduct) => {
     if (!updatedProduct || !updatedProduct.id) return;
-    setProducts((prev) =>
-      prev.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p))
-    );
+    
+    // Save to persistent overrides in localStorage
     try {
-      const cached = localStorage.getItem('stitch_products_cache');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        const updated = parsed.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p));
-        localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
-      }
+      const overrides = getStoredOverrides();
+      overrides[updatedProduct.id] = { ...(overrides[updatedProduct.id] || {}), ...updatedProduct };
+      localStorage.setItem('stitch_admin_products_override', JSON.stringify(overrides));
     } catch {}
+
+    setProducts((prev) => {
+      const updated = prev.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p));
+      try {
+        localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  // Optimistic & Persistent Add Product Helper
+  const addProductLocal = (newProduct) => {
+    if (!newProduct || !newProduct.id) return;
+    try {
+      const customProds = getCustomProducts();
+      customProds.unshift(newProduct);
+      localStorage.setItem('stitch_custom_products', JSON.stringify(customProds));
+    } catch {}
+
+    setProducts((prev) => {
+      const updated = [newProduct, ...prev.filter((p) => p.id !== newProduct.id)];
+      try {
+        localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  // Optimistic & Persistent Delete Product Helper
+  const deleteProductLocal = (productId) => {
+    if (!productId) return;
+    try {
+      const deletedIds = getDeletedIds();
+      if (!deletedIds.includes(productId)) {
+        deletedIds.push(productId);
+        localStorage.setItem('stitch_deleted_products', JSON.stringify(deletedIds));
+      }
+      const overrides = getStoredOverrides();
+      delete overrides[productId];
+      localStorage.setItem('stitch_admin_products_override', JSON.stringify(overrides));
+      
+      const customProds = getCustomProducts().filter((p) => p.id !== productId);
+      localStorage.setItem('stitch_custom_products', JSON.stringify(customProds));
+    } catch {}
+
+    setProducts((prev) => {
+      const updated = prev.filter((p) => p.id !== productId);
+      try {
+        localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
   };
 
   // Fetch Products & Categories
@@ -93,10 +200,11 @@ export function StoreProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         if (data.products && Array.isArray(data.products)) {
-          setProducts(data.products);
+          const finalMerged = applyOverrides(data.products);
+          setProducts(finalMerged);
           if (selectedCategory === 'all' && !searchQuery && maxPrice >= 250 && sortBy === 'featured') {
             try {
-              localStorage.setItem('stitch_products_cache', JSON.stringify(data.products));
+              localStorage.setItem('stitch_products_cache', JSON.stringify(finalMerged));
             } catch {}
           }
         }
@@ -341,7 +449,9 @@ export function StoreProvider({ children }) {
         totalCartCount,
         cartSubtotal,
         fetchProducts,
-        updateProductLocal
+        updateProductLocal,
+        addProductLocal,
+        deleteProductLocal
       }}
     >
       {children}

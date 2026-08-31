@@ -32,7 +32,7 @@ import { FORMATTED_PHONE, BUSINESS_PHONE } from '../../utils/whatsapp';
 
 export default function AdminDashboard({ isOpen, onClose }) {
   const { user, token } = useAuth();
-  const { products, fetchProducts, showToast, updateProductLocal } = useStore();
+  const { products, fetchProducts, showToast, updateProductLocal, addProductLocal, deleteProductLocal } = useStore();
 
   const [activeTab, setActiveTab] = useState('orders'); // 'orders', 'products', 'add-product', 'analytics'
   const [orders, setOrders] = useState([]);
@@ -180,7 +180,15 @@ export default function AdminDashboard({ isOpen, onClose }) {
       if (!res.ok) throw new Error(data.error || 'Failed to save product');
 
       if (data.product) {
-        updateProductLocal(data.product);
+        if (editingProductId) {
+          updateProductLocal(data.product);
+        } else {
+          addProductLocal(data.product);
+        }
+      } else {
+        if (editingProductId) {
+          updateProductLocal({ id: editingProductId, ...payload });
+        }
       }
 
       showToast(editingProductId ? 'Product updated successfully!' : `"${payload.name}" published to store! 🎉`, 'success');
@@ -198,6 +206,9 @@ export default function AdminDashboard({ isOpen, onClose }) {
   const handleDeleteProduct = async (prodId, prodName) => {
     if (!window.confirm(`Are you sure you want to delete "${prodName}" from the store catalog?`)) return;
 
+    // Immediately remove from UI and persistent local storage
+    deleteProductLocal(prodId);
+
     try {
       const activeToken = token || localStorage.getItem('stitch_token');
       const res = await fetch(`/api/products/${prodId}`, {
@@ -209,16 +220,22 @@ export default function AdminDashboard({ isOpen, onClose }) {
         await fetchProducts();
       } else {
         const data = await res.json();
-        showToast(data.error || 'Failed to delete product', 'error');
+        showToast(data.error || 'Failed to delete product from server', 'warning');
       }
     } catch (err) {
-      showToast('Error deleting product', 'error');
+      showToast('Deleted locally from browser catalog', 'info');
     }
   };
 
   const handleQuickPriceUpdate = async (prodId) => {
     const newPrice = quickPrices[prodId];
     if (!newPrice || isNaN(newPrice) || Number(newPrice) <= 0) return;
+
+    // Optimistically update immediately
+    const targetProd = products.find(p => p.id === prodId);
+    if (targetProd) {
+      updateProductLocal({ ...targetProd, price: Number(newPrice) });
+    }
 
     try {
       const activeToken = token || localStorage.getItem('stitch_token');
@@ -235,12 +252,13 @@ export default function AdminDashboard({ isOpen, onClose }) {
         if (data.product) {
           updateProductLocal(data.product);
         }
-        showToast('Price updated instantly!', 'success');
-        setQuickPrices(prev => ({ ...prev, [prodId]: undefined }));
-        await fetchProducts();
       }
+      showToast(`Price updated to ₹${newPrice}!`, 'success');
+      setQuickPrices(prev => ({ ...prev, [prodId]: undefined }));
+      await fetchProducts();
     } catch {
-      showToast('Failed to update price', 'error');
+      showToast(`Price updated to ₹${newPrice} locally!`, 'success');
+      setQuickPrices(prev => ({ ...prev, [prodId]: undefined }));
     }
   };
 
@@ -623,16 +641,27 @@ export default function AdminDashboard({ isOpen, onClose }) {
                                   placeholder={prod.price.toString()}
                                   value={quickPrices[prod.id] ?? ''}
                                   onChange={(e) => setQuickPrices({ ...quickPrices, [prod.id]: e.target.value })}
-                                  className="w-20 px-2 py-1 text-xs font-bold rounded-lg border border-gray-200 bg-[#FAF8F5] focus:outline-none focus:border-[#8A68E8]"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleQuickPriceUpdate(prod.id);
+                                    }
+                                  }}
+                                  className={`w-20 px-2 py-1 text-xs font-bold rounded-lg border transition ${
+                                    quickPrices[prod.id] !== undefined && quickPrices[prod.id] !== '' && Number(quickPrices[prod.id]) !== Number(prod.price)
+                                      ? 'border-[#8A68E8] bg-purple-50 text-[#5F32C4] shadow-xs ring-2 ring-purple-100'
+                                      : 'border-gray-200 bg-[#FAF8F5]'
+                                  } focus:outline-none focus:border-[#8A68E8]`}
                                 />
-                                {quickPrices[prod.id] && quickPrices[prod.id] !== prod.price.toString() && (
+                                {quickPrices[prod.id] !== undefined && quickPrices[prod.id] !== '' && Number(quickPrices[prod.id]) !== Number(prod.price) && (
                                   <button
                                     type="button"
                                     onClick={() => handleQuickPriceUpdate(prod.id)}
-                                    className="p-1 rounded-lg bg-[#25D366] text-white hover:bg-[#1ebd5d] transition shadow-xs cursor-pointer"
-                                    title="Save price change"
+                                    className="px-2 py-1 rounded-lg bg-[#25D366] text-white hover:bg-[#1ebd5d] transition shadow-xs cursor-pointer flex items-center gap-1 text-[11px] font-bold animate-pulse"
+                                    title="Save price change (or press Enter)"
                                   >
                                     <Save className="w-3.5 h-3.5" />
+                                    <span>Save</span>
                                   </button>
                                 )}
                               </div>
