@@ -62,8 +62,12 @@ export default function ProductDetailModal() {
         <div className="w-full md:w-1/2 bg-[#F5EFE6]/60 p-6 sm:p-8 flex flex-col items-center justify-center relative border-b md:border-b-0 md:border-r border-[#EDE4D6]">
           <div className="relative aspect-square w-full rounded-3xl overflow-hidden shadow-lg bg-white border border-gray-100 group">
             <img
-              src={product.image}
+              src={product.image || '/images/laptop_bag_lavender.jpg'}
               alt={product.name}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/images/laptop_bag_lavender.jpg';
+              }}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
             {product.badge && (

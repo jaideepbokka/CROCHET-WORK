@@ -23,6 +23,8 @@ import {
   ShieldCheck,
   Check,
   Image as ImageIcon,
+  Upload,
+  Camera,
   MapPin,
   Phone,
   User,
@@ -70,6 +72,30 @@ export default function AdminDashboard({ isOpen, onClose }) {
     { label: 'Sunflower Keychain', value: '/images/keychain_sunflower.jpg' },
     { label: 'Daisy Bell Charm', value: '/images/keychain_daisy.jpg' }
   ];
+
+  // Handler for uploading custom image from computer or mobile
+  const handleImageFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WEBP, GIF)', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result;
+      if (dataUrl) {
+        setPImage(dataUrl);
+        showToast('Image uploaded successfully! 📸', 'success');
+      }
+    };
+    reader.onerror = () => {
+      showToast('Failed to read image file. Please try another image.', 'error');
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Fetch all orders for admin
   const fetchAdminOrders = async () => {
@@ -609,11 +635,24 @@ export default function AdminDashboard({ isOpen, onClose }) {
                           <tr key={prod.id} className="hover:bg-[#FDFBF7] transition">
                             {/* Product Info */}
                             <td className="py-3.5 px-4 flex items-center gap-3">
-                              <img
-                                src={prod.image}
-                                alt={prod.name}
-                                className="w-12 h-12 rounded-xl object-cover border border-[#EDE4D6] shrink-0 bg-white"
-                              />
+                              <div 
+                                className="relative w-12 h-12 rounded-xl overflow-hidden border border-[#EDE4D6] shrink-0 bg-white group/thumb cursor-pointer shadow-xs"
+                                onClick={() => openEditProductModal(prod)}
+                                title="Click to change product image or details"
+                              >
+                                <img
+                                  src={prod.image || '/images/laptop_bag_lavender.jpg'}
+                                  alt={prod.name}
+                                  className="w-full h-full object-cover group-hover/thumb:scale-110 transition duration-300"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = '/images/laptop_bag_lavender.jpg';
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
+                                  <Camera className="w-3.5 h-3.5 text-white" />
+                                </div>
+                              </div>
                               <div>
                                 <p className="font-extrabold text-gray-900 line-clamp-1">{prod.name}</p>
                                 <span className="text-[10px] text-[#8A68E8] font-bold">{prod.badge || 'Handmade'}</span>
@@ -786,36 +825,98 @@ export default function AdminDashboard({ isOpen, onClose }) {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-1">
-                      Product Image Asset *
+                    <label className="block text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Product Image Asset *</span>
+                      <span className="text-[10px] text-[#8A68E8] font-bold">Upload file, choose preset, or paste URL</span>
                     </label>
-                    <select
-                      value={pImage}
-                      onChange={(e) => setPImage(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#EDE4D6] text-xs bg-[#FAF8F5] font-bold text-gray-800 mb-2 focus:outline-none focus:border-[#8A68E8]"
-                    >
-                      {curatedImageOptions.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        value={pImage}
-                        onChange={(e) => setPImage(e.target.value)}
-                        placeholder="or custom image path / URL"
-                        className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none"
-                      />
-                      {pImage && (
-                        <img
-                          src={pImage}
-                          alt="Preview"
-                          className="w-10 h-10 rounded-lg object-cover border border-gray-200 shrink-0 bg-white"
-                          onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                      )}
+
+                    <div className="flex flex-col sm:flex-row gap-3 items-start p-3 bg-[#FAF8F5] rounded-2xl border border-[#EDE4D6]">
+                      <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-gray-200 bg-white shrink-0 shadow-xs flex items-center justify-center">
+                        {pImage ? (
+                          <img
+                            src={pImage}
+                            alt="Product Preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = '/images/laptop_bag_lavender.jpg';
+                            }}
+                          />
+                        ) : (
+                          <ImageIcon className="w-8 h-8 text-gray-300" />
+                        )}
+                        {pImage && (
+                          <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                            Live Preview
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex-1 w-full space-y-2.5">
+                        {/* Device File Uploader */}
+                        <div className="flex items-center gap-2">
+                          <label className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2.5 bg-white border border-[#CBB6ED] text-[#5F32C4] hover:bg-[#F3EEFC] rounded-xl text-xs font-bold cursor-pointer transition shadow-xs">
+                            <Upload className="w-4 h-4 text-[#8A68E8]" />
+                            <span>Upload Photo from Device (PC / Phone)</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageFileUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+
+                        {/* Direct URL input */}
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={pImage}
+                            onChange={(e) => setPImage(e.target.value)}
+                            placeholder="or paste custom Image URL (https://...)"
+                            className="w-full pl-3 pr-8 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-[#8A68E8]"
+                          />
+                          {pImage && (
+                            <button
+                              type="button"
+                              onClick={() => setPImage('')}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold cursor-pointer"
+                              title="Clear Image"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Curated Presets */}
+                        <div>
+                          <p className="text-[10px] font-extrabold text-gray-500 mb-1.5 uppercase tracking-wider">
+                            Or select from artisan presets:
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                            {curatedImageOptions.map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => setPImage(opt.value)}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+                                  pImage === opt.value
+                                    ? 'bg-[#EFE9FA] border-[#8A68E8] text-[#5F32C4] shadow-xs ring-1 ring-[#8A68E8]'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                              >
+                                <img
+                                  src={opt.value}
+                                  alt=""
+                                  className="w-4 h-4 rounded-md object-cover"
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                                <span className="truncate max-w-[120px]">{opt.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1044,36 +1145,98 @@ export default function AdminDashboard({ isOpen, onClose }) {
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-1">
-                  Product Image Asset *
+                <label className="block text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Product Image Asset *</span>
+                  <span className="text-[10px] text-[#8A68E8] font-bold">Upload file, choose preset, or paste URL</span>
                 </label>
-                <select
-                  value={pImage}
-                  onChange={(e) => setPImage(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#EDE4D6] text-xs bg-[#FAF8F5] font-bold text-gray-800 mb-2 focus:outline-none focus:border-[#8A68E8]"
-                >
-                  {curatedImageOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={pImage}
-                    onChange={(e) => setPImage(e.target.value)}
-                    placeholder="or custom image path / URL"
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none"
-                  />
-                  {pImage && (
-                    <img
-                      src={pImage}
-                      alt="Preview"
-                      className="w-10 h-10 rounded-lg object-cover border border-gray-200 shrink-0 bg-white"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  )}
+
+                <div className="flex flex-col sm:flex-row gap-3 items-start p-3 bg-[#FAF8F5] rounded-2xl border border-[#EDE4D6]">
+                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-gray-200 bg-white shrink-0 shadow-xs flex items-center justify-center">
+                    {pImage ? (
+                      <img
+                        src={pImage}
+                        alt="Product Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = '/images/laptop_bag_lavender.jpg';
+                        }}
+                      />
+                    ) : (
+                      <ImageIcon className="w-8 h-8 text-gray-300" />
+                    )}
+                    {pImage && (
+                      <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                        Live Preview
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 w-full space-y-2.5">
+                    {/* Device File Uploader */}
+                    <div className="flex items-center gap-2">
+                      <label className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2.5 bg-white border border-[#CBB6ED] text-[#5F32C4] hover:bg-[#F3EEFC] rounded-xl text-xs font-bold cursor-pointer transition shadow-xs">
+                        <Upload className="w-4 h-4 text-[#8A68E8]" />
+                        <span>Upload Photo from Device (PC / Phone)</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Direct URL input */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={pImage}
+                        onChange={(e) => setPImage(e.target.value)}
+                        placeholder="or paste custom Image URL (https://...)"
+                        className="w-full pl-3 pr-8 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-[#8A68E8]"
+                      />
+                      {pImage && (
+                        <button
+                          type="button"
+                          onClick={() => setPImage('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold cursor-pointer"
+                          title="Clear Image"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Curated Presets */}
+                    <div>
+                      <p className="text-[10px] font-extrabold text-gray-500 mb-1.5 uppercase tracking-wider">
+                        Or select from artisan presets:
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                        {curatedImageOptions.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setPImage(opt.value)}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+                              pImage === opt.value
+                                ? 'bg-[#EFE9FA] border-[#8A68E8] text-[#5F32C4] shadow-xs ring-1 ring-[#8A68E8]'
+                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                            }`}
+                          >
+                            <img
+                              src={opt.value}
+                              alt=""
+                              className="w-4 h-4 rounded-md object-cover"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                            <span className="truncate max-w-[120px]">{opt.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

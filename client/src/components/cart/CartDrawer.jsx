@@ -136,8 +136,12 @@ export default function CartDrawer() {
                   className="flex gap-3.5 p-3.5 rounded-3xl bg-[#FAF8F5] border border-[#EDE4D6] hover:border-[#CBB6ED] transition shadow-xs"
                 >
                   <img
-                    src={item.product.image}
+                    src={item.product.image || '/images/laptop_bag_lavender.jpg'}
                     alt={item.product.name}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = '/images/laptop_bag_lavender.jpg';
+                    }}
                     className="w-20 h-20 rounded-2xl object-cover border border-white shadow-xs shrink-0 bg-white"
                   />
 

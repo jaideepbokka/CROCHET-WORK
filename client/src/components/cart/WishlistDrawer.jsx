@@ -65,8 +65,12 @@ export default function WishlistDrawer() {
                   className="flex gap-3.5 p-3 rounded-2xl bg-[#FAF7F2]/60 border border-[#E5DCD0]/60 hover:border-[#E76F51] transition"
                 >
                   <img
-                    src={product.image}
+                    src={product.image || '/images/laptop_bag_lavender.jpg'}
                     alt={product.name}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = '/images/laptop_bag_lavender.jpg';
+                    }}
                     className="w-20 h-20 rounded-xl object-cover border border-white shadow-xs shrink-0 bg-white"
                   />
 

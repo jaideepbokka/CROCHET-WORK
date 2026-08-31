@@ -27,8 +27,12 @@ export default function ProductCard({ product }) {
       {/* Top Image Showcase */}
       <div className="relative aspect-square w-full bg-[#F5EFE6]/50 overflow-hidden rounded-t-[28px]">
         <img
-          src={product.image}
+          src={product.image || '/images/laptop_bag_lavender.jpg'}
           alt={product.name}
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = '/images/laptop_bag_lavender.jpg';
+          }}
           className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
           loading="lazy"
         />
