@@ -37,6 +37,7 @@ export function StoreProvider({ children }) {
   };
 
   // Merge server products with client persistent overrides
+  // Merge server products with client persistent overrides
   const applyOverrides = (backendProducts) => {
     if (!Array.isArray(backendProducts)) return [];
     const overrides = getStoredOverrides();
@@ -54,10 +55,16 @@ export function StoreProvider({ children }) {
       return p;
     });
 
-    // 3. Include any newly created products
+    // 3. Include any newly created products (placed at top of catalog)
     for (const cp of customProds) {
-      if (!deletedIds.includes(cp.id) && !merged.some((p) => p.id === cp.id)) {
-        merged.unshift(overrides[cp.id] ? { ...cp, ...overrides[cp.id] } : cp);
+      if (!deletedIds.includes(cp.id)) {
+        const fullProd = overrides[cp.id] ? { ...cp, ...overrides[cp.id] } : cp;
+        const existingIdx = merged.findIndex((p) => p.id === cp.id);
+        if (existingIdx >= 0) {
+          merged[existingIdx] = fullProd;
+        } else {
+          merged.unshift(fullProd);
+        }
       }
     }
 
