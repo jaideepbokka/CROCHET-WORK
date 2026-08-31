@@ -3,13 +3,15 @@ import { db } from './services/db.js';
 import { isMySQLConnected, getMySQLPool } from './services/mysql.js';
 
 async function inspectDatabase() {
+  await db.initDatabaseSync();
+
   console.log('\n======================================================');
   console.log('🐬 STITCH & HOOK - DATABASE INSPECTOR');
   console.log('======================================================\n');
 
   console.log('📊 DATABASE STATUS:');
   console.log(`- MySQL Connection: ${isMySQLConnected() ? '✅ CONNECTED (stitch_hook DB)' : 'ℹ️ Using Persistent JSON Store (server/data/store.json)'}`);
-  console.log(`- Storage Location: ${isMySQLConnected() ? 'MySQL Server (localhost:3306)' : 'd:\\PROJECTS\\CROCHET WORK\\server\\data\\store.json'}`);
+  console.log(`- Storage Location: ${isMySQLConnected() ? 'MySQL Server (localhost:3306) + JSON Backup' : 'd:\\PROJECTS\\CROCHET WORK\\server\\data\\store.json'}`);
 
   console.log('\n------------------------------------------------------');
   console.log('👤 USERS TABLE (Accounts):');

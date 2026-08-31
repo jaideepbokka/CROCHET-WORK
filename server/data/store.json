@@ -5,25 +5,25 @@
       "name": "Deepu (Administrator)",
       "email": "jdeep8823@gmail.com",
       "phone": "9014567531",
-      "password": "$2a$10$ZPCfIIbs0R3SDPMQ6JXc9uO.etPDJDIIi1SMabVG.RyNgY7b3WhLK",
+      "password": "$2a$10$jSUXqD7mr/J42yRw2iRqKuXVz5wvFMq2Fm3eknrKqgKmwNmF1pjLW",
       "role": "admin",
       "twoFactorEnabled": true,
       "preferredOtpMethod": "both",
       "addresses": [
         {
           "id": "addr-admin-1",
-          "isDefault": true,
-          "fullName": "Deepu (Stitch & Hook)",
-          "phone": "9014567531",
-          "street": "Stitch & Hook Artisan Studio, Main Road",
           "city": "Hyderabad",
+          "phone": "9014567531",
           "state": "Telangana",
-          "pincode": "500001"
+          "street": "Stitch & Hook Artisan Studio, Main Road",
+          "pincode": "500001",
+          "fullName": "Deepu (Stitch & Hook)",
+          "isDefault": true
         }
       ],
       "wishlist": [],
       "cart": [],
-      "createdAt": "2026-08-20T18:02:32.819Z"
+      "createdAt": "2026-08-20T17:13:11.000Z"
     }
   ],
   "products": [
@@ -32,23 +32,24 @@
       "name": "Lavender & Cream Waffle Laptop Sleeve",
       "category": "Laptop Bags",
       "categorySlug": "laptop-bags",
-      "price": 150,
-      "originalPrice": 220,
+      "price": 180,
+      "originalPrice": 240,
       "rating": 4.9,
       "reviewsCount": 38,
       "image": "/images/laptop_bag_lavender.jpg",
-      "description": "Handcrafted with thick double-waffle stitch using soft milk cotton yarn. Features a rustic wooden button closure with elastic loop and shock-absorbing textured cushioning to keep your 13\"–15\" laptop safe.",
-      "dimensions": "14\" x 10.5\" (Fits 13-14 inch laptops / MacBooks)",
-      "yarnMaterial": "100% Premium Milk Cotton & Acrylic Blend",
+      "description": "Updated artisan waffle stitch with custom wooden accents.",
+      "dimensions": "14.2\" x 10.6\" (Universal fit)",
+      "yarnMaterial": "100% Organic Milk Cotton",
       "inStock": true,
       "badge": "Bestseller",
       "colorOptions": [
         "Lavender & Cream",
-        "Oatmeal & Lilac",
-        "Pastel Sage"
+        "Pastel Sage",
+        "Lilac Frost"
       ],
-      "careInstructions": "Gentle hand wash with cold water. Lay flat on dry towel to preserve shape.",
-      "updatedAt": "2026-08-20T16:08:59.932Z"
+      "careInstructions": "Hand wash cold",
+      "createdAt": "2026-08-31T07:49:08.000Z",
+      "updatedAt": "2026-08-31T13:28:40.188Z"
     },
     {
       "id": "prod-lb-2",
@@ -70,7 +71,9 @@
         "Ocean Breeze",
         "Berry Swirl"
       ],
-      "careInstructions": "Spot clean with mild detergent or hand wash cold."
+      "careInstructions": "Spot clean with mild detergent or hand wash cold.",
+      "createdAt": "2026-08-31T07:51:35.000Z",
+      "updatedAt": "2026-08-31T07:58:39.000Z"
     },
     {
       "id": "prod-lb-3",
@@ -92,7 +95,9 @@
         "Dusty Lavender",
         "Sand Dune"
       ],
-      "careInstructions": "Hand wash gently in lukewarm water."
+      "careInstructions": "Hand wash gently in lukewarm water.",
+      "createdAt": "2026-08-31T07:51:35.000Z",
+      "updatedAt": "2026-08-31T07:58:39.000Z"
     },
     {
       "id": "prod-bc-1",
@@ -114,7 +119,9 @@
         "Pastel Pink",
         "Lilac Strawberry"
       ],
-      "careInstructions": "Spot clean with damp cloth."
+      "careInstructions": "Spot clean with damp cloth.",
+      "createdAt": "2026-08-31T07:51:35.000Z",
+      "updatedAt": "2026-08-31T07:58:39.000Z"
     },
     {
       "id": "prod-bc-2",
@@ -136,7 +143,9 @@
         "Sun Yellow Tulip",
         "Baby Blue Tulip"
       ],
-      "careInstructions": "Hand wash gently and dry flat in shade."
+      "careInstructions": "Hand wash gently and dry flat in shade.",
+      "createdAt": "2026-08-31T07:51:35.000Z",
+      "updatedAt": "2026-08-31T07:58:39.000Z"
     },
     {
       "id": "prod-kc-1",
@@ -157,7 +166,9 @@
         "Classic Red & Blue",
         "Stealth Black & Red"
       ],
-      "careInstructions": "Spot clean only with soft damp cloth."
+      "careInstructions": "Spot clean only with soft damp cloth.",
+      "createdAt": "2026-08-31T07:51:35.000Z",
+      "updatedAt": "2026-08-31T07:58:39.000Z"
     },
     {
       "id": "prod-kc-2",
@@ -177,7 +188,9 @@
       "colorOptions": [
         "Miles Black & Crimson"
       ],
-      "careInstructions": "Spot clean only."
+      "careInstructions": "Spot clean only.",
+      "createdAt": "2026-08-31T07:51:35.000Z",
+      "updatedAt": "2026-08-31T07:58:39.000Z"
     },
     {
       "id": "prod-kc-3",
@@ -199,7 +212,9 @@
         "Golden Honey",
         "Pastel Lemon"
       ],
-      "careInstructions": "Spot clean with lukewarm soapy water."
+      "careInstructions": "Spot clean with lukewarm soapy water.",
+      "createdAt": "2026-08-31T07:51:35.000Z",
+      "updatedAt": "2026-08-31T07:58:39.000Z"
     },
     {
       "id": "prod-kc-4",
@@ -221,7 +236,9 @@
         "Lilac Daisy",
         "Blush Pink Daisy"
       ],
-      "careInstructions": "Wipe clean gently with dry or slightly damp cloth."
+      "careInstructions": "Wipe clean gently with dry or slightly damp cloth.",
+      "createdAt": "2026-08-31T07:51:35.000Z",
+      "updatedAt": "2026-08-31T07:58:39.000Z"
     }
   ],
   "orders": [],

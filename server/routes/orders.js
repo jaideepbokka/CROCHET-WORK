@@ -8,7 +8,7 @@ const router = express.Router();
  * POST /api/orders
  * Logs an order initiated via WhatsApp checkout
  */
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const {
       userId,
@@ -27,7 +27,7 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Invalid order data. Name and items are required.' });
     }
 
-    const order = db.createOrder({
+    const order = await db.createOrder({
       userId: userId || null,
       customerName,
       customerPhone: customerPhone || '',
@@ -77,10 +77,10 @@ router.get('/my-orders', requireAuth, (req, res) => {
 /**
  * PUT /api/orders/:id/status (Admin Only: Update order status)
  */
-router.put('/:id/status', requireAdmin, (req, res) => {
+router.put('/:id/status', requireAdmin, async (req, res) => {
   try {
     const { status } = req.body;
-    const order = db.updateOrderStatus(req.params.id, status);
+    const order = await db.updateOrderStatus(req.params.id, status);
     if (!order) {
       return res.status(404).json({ error: 'Order not found.' });
     }
@@ -93,10 +93,10 @@ router.put('/:id/status', requireAdmin, (req, res) => {
 /**
  * DELETE /api/orders/:id (Admin Only: Delete specific customer order)
  */
-router.delete('/:id', requireAdmin, (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const orderId = req.params.id;
-    const success = db.deleteOrder(orderId);
+    const success = await db.deleteOrder(orderId);
     if (!success) {
       return res.status(404).json({ error: 'Order not found.' });
     }
@@ -109,9 +109,9 @@ router.delete('/:id', requireAdmin, (req, res) => {
 /**
  * DELETE /api/orders/all/clear (Admin Only: Clear all orders)
  */
-router.delete('/all/clear', requireAdmin, (req, res) => {
+router.delete('/all/clear', requireAdmin, async (req, res) => {
   try {
-    db.clearAllOrders();
+    await db.clearAllOrders();
     return res.status(200).json({ message: 'All orders cleared.' });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to clear orders.' });

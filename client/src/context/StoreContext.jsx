@@ -8,9 +8,16 @@ const StoreContext = createContext();
 export function StoreProvider({ children }) {
   const { user, token } = useAuth();
 
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(() => {
+    try {
+      const cached = localStorage.getItem('stitch_products_cache');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [categories, setCategories] = useState([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
   // Filters & Search
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -56,6 +63,22 @@ export function StoreProvider({ children }) {
     }, 4000);
   };
 
+  // Optimistic product update helper
+  const updateProductLocal = (updatedProduct) => {
+    if (!updatedProduct || !updatedProduct.id) return;
+    setProducts((prev) =>
+      prev.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p))
+    );
+    try {
+      const cached = localStorage.getItem('stitch_products_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const updated = parsed.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p));
+        localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
+      }
+    } catch {}
+  };
+
   // Fetch Products & Categories
   const fetchProducts = async () => {
     setLoadingProducts(true);
@@ -69,13 +92,20 @@ export function StoreProvider({ children }) {
       const res = await fetch(`/api/products?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setProducts(data.products);
+        if (data.products && Array.isArray(data.products)) {
+          setProducts(data.products);
+          if (selectedCategory === 'all' && !searchQuery && maxPrice >= 250 && sortBy === 'featured') {
+            try {
+              localStorage.setItem('stitch_products_cache', JSON.stringify(data.products));
+            } catch {}
+          }
+        }
       }
 
       const catRes = await fetch('/api/products/categories');
       if (catRes.ok) {
         const catData = await catRes.json();
-        setCategories(catData.categories);
+        if (catData.categories) setCategories(catData.categories);
       }
     } catch (err) {
       console.error('Failed to fetch products:', err);
@@ -310,7 +340,8 @@ export function StoreProvider({ children }) {
         triggerCartCheckout,
         totalCartCount,
         cartSubtotal,
-        fetchProducts
+        fetchProducts,
+        updateProductLocal
       }}
     >
       {children}

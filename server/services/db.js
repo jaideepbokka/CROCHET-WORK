@@ -13,7 +13,23 @@ try {
 
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
-import { initMySQL } from './mysql.js';
+import { 
+  initMySQL, 
+  isMySQLConnected, 
+  getMySQLProducts, 
+  upsertMySQLProduct, 
+  seedMySQLProducts, 
+  deleteMySQLProduct, 
+  getMySQLUsers, 
+  upsertMySQLUser, 
+  getMySQLOrders, 
+  upsertMySQLOrder, 
+  deleteMySQLOrder, 
+  clearMySQLOrders, 
+  saveMySQLOtp, 
+  getMySQLOtp, 
+  deleteMySQLOtp 
+} from './mysql.js';
 
 const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
 const DB_FILE = isServerless
@@ -196,7 +212,81 @@ class Store {
     };
     this.seedUsers();
     this.load();
-    initMySQL().catch(() => {});
+    this.initDatabaseSync();
+  }
+
+  async initDatabaseSync() {
+    try {
+      const mysqlOk = await initMySQL();
+      if (mysqlOk && isMySQLConnected()) {
+        // 1. Products Sync (Merge & Ensure all items exist)
+        const mysqlProds = await getMySQLProducts();
+        const productMap = new Map();
+        
+        // Base products from memory / JSON
+        for (const p of (this.data.products || [])) {
+          if (p && p.id) productMap.set(p.id, p);
+        }
+        // Fallback initial seeds if anything is missing
+        for (const p of initialProducts) {
+          if (p && p.id && !productMap.has(p.id)) {
+            productMap.set(p.id, p);
+          }
+        }
+        // Overwrite / incorporate items from MySQL
+        if (mysqlProds && mysqlProds.length > 0) {
+          for (const p of mysqlProds) {
+            if (p && p.id) productMap.set(p.id, p);
+          }
+        }
+
+        this.data.products = Array.from(productMap.values());
+        this.save();
+
+        // Seed / Upsert all into MySQL
+        for (const p of this.data.products) {
+          await upsertMySQLProduct(p);
+        }
+
+        // 2. Users Sync
+        const mysqlUsers = await getMySQLUsers();
+        if (mysqlUsers && mysqlUsers.length > 0) {
+          const userMap = new Map();
+          for (const u of (this.data.users || [])) {
+            if (u && u.id) userMap.set(u.id, u);
+          }
+          for (const u of mysqlUsers) {
+            if (u && u.id) userMap.set(u.id, u);
+          }
+          this.data.users = Array.from(userMap.values());
+          this.save();
+        } else if (this.data.users && this.data.users.length > 0) {
+          for (const u of this.data.users) {
+            await upsertMySQLUser(u);
+          }
+        }
+
+        // 3. Orders Sync
+        const mysqlOrders = await getMySQLOrders();
+        if (mysqlOrders && mysqlOrders.length > 0) {
+          const orderMap = new Map();
+          for (const o of (this.data.orders || [])) {
+            if (o && o.id) orderMap.set(o.id, o);
+          }
+          for (const o of mysqlOrders) {
+            if (o && o.id) orderMap.set(o.id, o);
+          }
+          this.data.orders = Array.from(orderMap.values());
+          this.save();
+        } else if (this.data.orders && this.data.orders.length > 0) {
+          for (const o of this.data.orders) {
+            await upsertMySQLOrder(o);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Database initialization sync notice:', err.message);
+    }
   }
 
   load() {
@@ -273,7 +363,7 @@ class Store {
     return this.data.users.find(u => u.id === id);
   }
 
-  createUser(userData) {
+  async createUser(userData) {
     const user = {
       id: 'usr-' + Date.now(),
       name: userData.name,
@@ -290,14 +380,16 @@ class Store {
     };
     this.data.users.push(user);
     this.save();
+    try { await upsertMySQLUser(user); } catch {}
     return user;
   }
 
-  updateUser(id, updates) {
+  async updateUser(id, updates) {
     const idx = this.data.users.findIndex(u => u.id === id);
     if (idx === -1) return null;
     this.data.users[idx] = { ...this.data.users[idx], ...updates, updatedAt: new Date().toISOString() };
     this.save();
+    try { await upsertMySQLUser(this.data.users[idx]); } catch {}
     return this.data.users[idx];
   }
 
@@ -330,7 +422,7 @@ class Store {
     return this.data.products.find(p => p.id === id);
   }
 
-  addProduct(productData) {
+  async addProduct(productData) {
     const slug = productData.category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const newProduct = {
       id: 'prod-' + Date.now(),
@@ -353,31 +445,34 @@ class Store {
     };
     this.data.products.unshift(newProduct);
     this.save();
+    try { await upsertMySQLProduct(newProduct); } catch {}
     return newProduct;
   }
 
-  updateProduct(id, updates) {
+  async updateProduct(id, updates) {
     const idx = this.data.products.findIndex(p => p.id === id);
     if (idx === -1) return null;
-    if (updates.price) updates.price = Number(updates.price);
-    if (updates.originalPrice) updates.originalPrice = Number(updates.originalPrice);
+    if (updates.price !== undefined) updates.price = Number(updates.price);
+    if (updates.originalPrice !== undefined) updates.originalPrice = Number(updates.originalPrice);
     if (updates.category && !updates.categorySlug) {
       updates.categorySlug = updates.category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     }
     this.data.products[idx] = { ...this.data.products[idx], ...updates, updatedAt: new Date().toISOString() };
     this.save();
+    try { await upsertMySQLProduct(this.data.products[idx]); } catch {}
     return this.data.products[idx];
   }
 
-  deleteProduct(id) {
+  async deleteProduct(id) {
     const idx = this.data.products.findIndex(p => p.id === id);
     if (idx === -1) return false;
     this.data.products.splice(idx, 1);
     this.save();
+    try { await deleteMySQLProduct(id); } catch {}
     return true;
   }
 
-  createOrder(orderData) {
+  async createOrder(orderData) {
     const order = {
       id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
       userId: orderData.userId || null,
@@ -395,6 +490,7 @@ class Store {
     };
     this.data.orders.unshift(order);
     this.save();
+    try { await upsertMySQLOrder(order); } catch {}
     return order;
   }
 
@@ -406,44 +502,49 @@ class Store {
     return this.data.orders.filter(o => o.userId === userId);
   }
 
-  updateOrderStatus(orderId, status) {
+  async updateOrderStatus(orderId, status) {
     const order = this.data.orders.find(o => o.id === orderId);
     if (!order) return null;
     order.status = status;
     order.updatedAt = new Date().toISOString();
     this.save();
+    try { await upsertMySQLOrder(order); } catch {}
     return order;
   }
 
-  deleteOrder(orderId) {
+  async deleteOrder(orderId) {
     const idx = this.data.orders.findIndex(o => o.id === orderId);
     if (idx === -1) return false;
     this.data.orders.splice(idx, 1);
     this.save();
+    try { await deleteMySQLOrder(orderId); } catch {}
     return true;
   }
 
-  clearAllOrders() {
+  async clearAllOrders() {
     this.data.orders = [];
     this.save();
+    try { await clearMySQLOrders(); } catch {}
     return true;
   }
 
-  saveOtp(targetKey, otpData) {
+  async saveOtp(targetKey, otpData) {
     this.data.otps[targetKey] = {
       ...otpData,
       createdAt: Date.now()
     };
     this.save();
+    try { await saveMySQLOtp(targetKey, otpData); } catch {}
   }
 
   getOtp(targetKey) {
     return this.data.otps[targetKey];
   }
 
-  deleteOtp(targetKey) {
+  async deleteOtp(targetKey) {
     delete this.data.otps[targetKey];
     this.save();
+    try { await deleteMySQLOtp(targetKey); } catch {}
   }
 }
 

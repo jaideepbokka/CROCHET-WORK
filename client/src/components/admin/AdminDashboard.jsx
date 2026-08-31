@@ -32,7 +32,7 @@ import { FORMATTED_PHONE, BUSINESS_PHONE } from '../../utils/whatsapp';
 
 export default function AdminDashboard({ isOpen, onClose }) {
   const { user, token } = useAuth();
-  const { products, fetchProducts, showToast } = useStore();
+  const { products, fetchProducts, showToast, updateProductLocal } = useStore();
 
   const [activeTab, setActiveTab] = useState('orders'); // 'orders', 'products', 'add-product', 'analytics'
   const [orders, setOrders] = useState([]);
@@ -179,6 +179,10 @@ export default function AdminDashboard({ isOpen, onClose }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save product');
 
+      if (data.product) {
+        updateProductLocal(data.product);
+      }
+
       showToast(editingProductId ? 'Product updated successfully!' : `"${payload.name}" published to store! 🎉`, 'success');
       setProductModalOpen(false);
       resetForm();
@@ -227,6 +231,10 @@ export default function AdminDashboard({ isOpen, onClose }) {
         body: JSON.stringify({ price: Number(newPrice) })
       });
       if (res.ok) {
+        const data = await res.json();
+        if (data.product) {
+          updateProductLocal(data.product);
+        }
         showToast('Price updated instantly!', 'success');
         setQuickPrices(prev => ({ ...prev, [prodId]: undefined }));
         await fetchProducts();

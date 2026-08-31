@@ -4,9 +4,13 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'stitch_hook_super_secret_jwt_artisan_2026_key';
+const DB_FILE = path.join(os.tmpdir(), 'stitch_store.json');
 
 // Middleware
 app.use(cors({
@@ -183,7 +187,7 @@ const initialProducts = [
   }
 ];
 
-// In-Memory Database Store for Serverless
+// Persistent Store for Serverless
 const store = {
   users: [
     {
@@ -205,6 +209,27 @@ const store = {
   orders: [],
   otps: {}
 };
+
+const loadStore = () => {
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (parsed.users && parsed.users.length > 0) store.users = parsed.users;
+      if (parsed.products && parsed.products.length > 0) store.products = parsed.products;
+      if (parsed.orders) store.orders = parsed.orders;
+      if (parsed.otps) store.otps = parsed.otps;
+    }
+  } catch {}
+};
+
+const saveStore = () => {
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(store, null, 2), 'utf8');
+  } catch {}
+};
+
+loadStore();
 
 // Transporter with direct Gmail service
 const getTransporter = () => {
@@ -646,6 +671,7 @@ const addProductHandler = (req, res) => {
     createdAt: new Date().toISOString()
   };
   store.products.unshift(newProd);
+  saveStore();
   res.status(201).json({ message: 'Product created!', product: newProd });
 };
 app.post('/api/products', adminMiddleware, addProductHandler);
@@ -655,8 +681,10 @@ app.post('/products', adminMiddleware, addProductHandler);
 const editProductHandler = (req, res) => {
   const idx = store.products.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Product not found.' });
-  if (req.body.price) req.body.price = Number(req.body.price);
+  if (req.body.price !== undefined) req.body.price = Number(req.body.price);
+  if (req.body.originalPrice !== undefined) req.body.originalPrice = Number(req.body.originalPrice);
   store.products[idx] = { ...store.products[idx], ...req.body, updatedAt: new Date().toISOString() };
+  saveStore();
   res.json({ message: 'Product updated!', product: store.products[idx] });
 };
 app.put('/api/products/:id', adminMiddleware, editProductHandler);
@@ -667,6 +695,7 @@ const deleteProductHandler = (req, res) => {
   const idx = store.products.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Product not found.' });
   store.products.splice(idx, 1);
+  saveStore();
   res.json({ message: 'Product deleted.' });
 };
 app.delete('/api/products/:id', adminMiddleware, deleteProductHandler);
@@ -681,6 +710,7 @@ const createOrderHandler = (req, res) => {
     createdAt: new Date().toISOString()
   };
   store.orders.unshift(order);
+  saveStore();
   res.status(201).json({ message: 'Order recorded!', order });
 };
 app.post('/api/orders', createOrderHandler);
@@ -696,6 +726,7 @@ const updateOrderStatusHandler = (req, res) => {
   const order = store.orders.find(o => o.id === req.params.id);
   if (!order) return res.status(404).json({ error: 'Order not found.' });
   order.status = req.body.status;
+  saveStore();
   res.json({ message: 'Order status updated!', order });
 };
 app.put('/api/orders/:id/status', adminMiddleware, updateOrderStatusHandler);
@@ -706,6 +737,7 @@ const deleteOrderHandler = (req, res) => {
   const idx = store.orders.findIndex(o => o.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Order not found.' });
   store.orders.splice(idx, 1);
+  saveStore();
   res.json({ message: 'Order deleted successfully.' });
 };
 app.delete('/api/orders/:id', adminMiddleware, deleteOrderHandler);
@@ -714,6 +746,7 @@ app.delete('/orders/:id', adminMiddleware, deleteOrderHandler);
 // Orders: Clear All
 const clearAllOrdersHandler = (req, res) => {
   store.orders = [];
+  saveStore();
   res.json({ message: 'All orders cleared.' });
 };
 app.delete('/api/orders/all/clear', adminMiddleware, clearAllOrdersHandler);

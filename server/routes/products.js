@@ -50,14 +50,17 @@ router.get('/:id', (req, res) => {
 /**
  * POST /api/products (Admin Only: Add New Product)
  */
-router.post('/', requireAdmin, (req, res) => {
+/**
+ * POST /api/products (Admin Only: Add New Product)
+ */
+router.post('/', requireAdmin, async (req, res) => {
   try {
     const { name, category, price, originalPrice, description, image, dimensions, yarnMaterial, badge, colorOptions, inStock } = req.body;
     if (!name || !category || !price) {
       return res.status(400).json({ error: 'Product name, category, and price are required.' });
     }
 
-    const newProduct = db.addProduct({
+    const newProduct = await db.addProduct({
       name: name.trim(),
       category: category.trim(),
       price: Number(price),
@@ -81,7 +84,7 @@ router.post('/', requireAdmin, (req, res) => {
 /**
  * PUT /api/products/:id (Admin Only: Edit Product / Change Price)
  */
-router.put('/:id', requireAdmin, (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const productId = req.params.id;
     const updates = req.body;
@@ -90,7 +93,7 @@ router.put('/:id', requireAdmin, (req, res) => {
       updates.colorOptions = updates.colorOptions.split(',').map(s => s.trim());
     }
 
-    const updatedProduct = db.updateProduct(productId, updates);
+    const updatedProduct = await db.updateProduct(productId, updates);
     if (!updatedProduct) {
       return res.status(404).json({ error: 'Product not found.' });
     }
@@ -105,10 +108,10 @@ router.put('/:id', requireAdmin, (req, res) => {
 /**
  * DELETE /api/products/:id (Admin Only: Delete Product)
  */
-router.delete('/:id', requireAdmin, (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const productId = req.params.id;
-    const deleted = db.deleteProduct(productId);
+    const deleted = await db.deleteProduct(productId);
     if (!deleted) {
       return res.status(404).json({ error: 'Product not found.' });
     }
