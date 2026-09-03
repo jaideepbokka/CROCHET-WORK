@@ -37,7 +37,6 @@ export function StoreProvider({ children }) {
   };
 
   // Merge server products with client persistent overrides
-  // Merge server products with client persistent overrides
   const applyOverrides = (backendProducts) => {
     if (!Array.isArray(backendProducts)) return [];
     const overrides = getStoredOverrides();
@@ -55,13 +54,17 @@ export function StoreProvider({ children }) {
       return p;
     });
 
-    // 3. Include any newly created products (placed at top of catalog)
+    // 3. Include any newly created products (merging duplicates by id or name)
     for (const cp of customProds) {
       if (!deletedIds.includes(cp.id)) {
         const fullProd = overrides[cp.id] ? { ...cp, ...overrides[cp.id] } : cp;
-        const existingIdx = merged.findIndex((p) => p.id === cp.id);
+        const existingIdx = merged.findIndex((p) => p.id === cp.id || (p.name && cp.name && p.name.trim().toLowerCase() === cp.name.trim().toLowerCase()));
         if (existingIdx >= 0) {
-          merged[existingIdx] = fullProd;
+          merged[existingIdx] = {
+            ...cp,
+            ...merged[existingIdx],
+            ...fullProd
+          };
         } else {
           merged.unshift(fullProd);
         }
@@ -138,10 +141,18 @@ export function StoreProvider({ children }) {
       const overrides = getStoredOverrides();
       overrides[updatedProduct.id] = { ...(overrides[updatedProduct.id] || {}), ...updatedProduct };
       localStorage.setItem('stitch_admin_products_override', JSON.stringify(overrides));
+
+      // Also update in custom products if this was a custom product
+      const customProds = getCustomProducts();
+      const cpIdx = customProds.findIndex(p => p.id === updatedProduct.id || (p.name && updatedProduct.name && p.name.trim().toLowerCase() === updatedProduct.name.trim().toLowerCase()));
+      if (cpIdx >= 0) {
+        customProds[cpIdx] = { ...customProds[cpIdx], ...updatedProduct };
+        localStorage.setItem('stitch_custom_products', JSON.stringify(customProds));
+      }
     } catch {}
 
     setProducts((prev) => {
-      const updated = prev.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p));
+      const updated = prev.map((p) => (p.id === updatedProduct.id || (p.name && updatedProduct.name && p.name.trim().toLowerCase() === updatedProduct.name.trim().toLowerCase()) ? { ...p, ...updatedProduct } : p));
       try {
         localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
       } catch {}
@@ -154,12 +165,17 @@ export function StoreProvider({ children }) {
     if (!newProduct || !newProduct.id) return;
     try {
       const customProds = getCustomProducts();
-      customProds.unshift(newProduct);
+      const existingIdx = customProds.findIndex(p => p.id === newProduct.id || (p.name && newProduct.name && p.name.trim().toLowerCase() === newProduct.name.trim().toLowerCase()));
+      if (existingIdx >= 0) {
+        customProds[existingIdx] = { ...customProds[existingIdx], ...newProduct };
+      } else {
+        customProds.unshift(newProduct);
+      }
       localStorage.setItem('stitch_custom_products', JSON.stringify(customProds));
     } catch {}
 
     setProducts((prev) => {
-      const updated = [newProduct, ...prev.filter((p) => p.id !== newProduct.id)];
+      const updated = [newProduct, ...prev.filter((p) => p.id !== newProduct.id && (!newProduct.name || p.name.trim().toLowerCase() !== newProduct.name.trim().toLowerCase()))];
       try {
         localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
       } catch {}

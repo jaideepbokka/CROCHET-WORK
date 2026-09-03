@@ -55,7 +55,7 @@ router.get('/:id', (req, res) => {
  */
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { name, category, price, originalPrice, description, image, images, dimensions, yarnMaterial, badge, colorOptions, inStock } = req.body;
+    const { id, name, category, price, originalPrice, description, image, images, dimensions, yarnMaterial, badge, colorOptions, inStock } = req.body;
     if (!name || !category || !price) {
       return res.status(400).json({ error: 'Product name, category, and price are required.' });
     }
@@ -64,6 +64,7 @@ router.post('/', requireAdmin, async (req, res) => {
     const imagesList = Array.isArray(images) && images.length > 0 ? images : [primaryImage];
 
     const newProduct = await db.addProduct({
+      id: id || ('prod-' + Date.now()),
       name: name.trim(),
       category: category.trim(),
       price: Number(price),

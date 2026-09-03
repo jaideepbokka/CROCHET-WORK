@@ -427,7 +427,7 @@ class Store {
     const primaryImage = productData.image || (Array.isArray(productData.images) && productData.images[0]) || '/images/laptop_bag_lavender.jpg';
     const imagesList = Array.isArray(productData.images) && productData.images.length > 0 ? productData.images : [primaryImage];
     const newProduct = {
-      id: 'prod-' + Date.now(),
+      id: productData.id || ('prod-' + Date.now()),
       name: productData.name,
       category: productData.category,
       categorySlug: productData.categorySlug || slug,
@@ -446,15 +446,20 @@ class Store {
       inStock: productData.inStock !== false,
       createdAt: new Date().toISOString()
     };
-    this.data.products.unshift(newProduct);
+    // If a product with this id already exists, update it instead of adding a duplicate
+    const existingIdx = this.data.products.findIndex(p => p.id === newProduct.id || String(p.id).trim() === String(newProduct.id).trim());
+    if (existingIdx >= 0) {
+      this.data.products[existingIdx] = { ...this.data.products[existingIdx], ...newProduct, updatedAt: new Date().toISOString() };
+    } else {
+      this.data.products.unshift(newProduct);
+    }
     this.save();
     try { await upsertMySQLProduct(newProduct); } catch {}
     return newProduct;
   }
 
   async updateProduct(id, updates) {
-    const idx = this.data.products.findIndex(p => p.id === id);
-    if (idx === -1) return null;
+    let idx = this.data.products.findIndex(p => p.id === id || String(p.id).trim() === String(id).trim());
     if (updates.price !== undefined) updates.price = Number(updates.price);
     if (updates.originalPrice !== undefined) updates.originalPrice = Number(updates.originalPrice);
     if (updates.category && !updates.categorySlug) {
@@ -463,6 +468,35 @@ class Store {
     if (Array.isArray(updates.images) && updates.images.length > 0 && !updates.image) {
       updates.image = updates.images[0];
     }
+    
+    // Self-healing: if product was saved on client but missing in memory, create it with updated price
+    if (idx === -1) {
+      const newProd = {
+        id,
+        name: updates.name || 'Crochet Creation',
+        category: updates.category || 'Laptop Bags',
+        categorySlug: updates.categorySlug || 'laptop-bags',
+        price: Number(updates.price || 180),
+        originalPrice: updates.originalPrice ? Number(updates.originalPrice) : Math.round(Number(updates.price || 180) * 1.25),
+        rating: 5.0,
+        reviewsCount: 1,
+        image: updates.image || (Array.isArray(updates.images) && updates.images[0]) || '/images/laptop_bag_lavender.jpg',
+        images: Array.isArray(updates.images) && updates.images.length > 0 ? updates.images : [updates.image || '/images/laptop_bag_lavender.jpg'],
+        description: updates.description || 'Handcrafted artisan crochet creation.',
+        dimensions: updates.dimensions || '',
+        yarnMaterial: updates.yarnMaterial || '100% Premium Milk Cotton Yarn',
+        badge: updates.badge || 'New Arrival',
+        colorOptions: updates.colorOptions || ['Original'],
+        inStock: updates.inStock !== false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      this.data.products.unshift(newProd);
+      this.save();
+      try { await upsertMySQLProduct(newProd); } catch {}
+      return newProd;
+    }
+
     this.data.products[idx] = { ...this.data.products[idx], ...updates, updatedAt: new Date().toISOString() };
     this.save();
     try { await upsertMySQLProduct(this.data.products[idx]); } catch {}

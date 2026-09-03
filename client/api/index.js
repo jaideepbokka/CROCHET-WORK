@@ -707,15 +707,21 @@ app.get('/products/categories', getCategoriesHandler);
 
 // Products: Add
 const addProductHandler = (req, res) => {
+  const prodId = req.body.id || ('prod-' + Date.now());
   const newProd = {
-    id: 'prod-' + Date.now(),
     ...req.body,
+    id: prodId,
     price: Number(req.body.price),
     categorySlug: (req.body.category || 'laptop-bags').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
     inStock: req.body.inStock !== false,
     createdAt: new Date().toISOString()
   };
-  store.products.unshift(newProd);
+  const existingIdx = store.products.findIndex(p => p.id === prodId || String(p.id).trim() === String(prodId).trim());
+  if (existingIdx >= 0) {
+    store.products[existingIdx] = { ...store.products[existingIdx], ...newProd, updatedAt: new Date().toISOString() };
+  } else {
+    store.products.unshift(newProd);
+  }
   saveStore();
   res.status(201).json({ message: 'Product created!', product: newProd });
 };
@@ -724,10 +730,31 @@ app.post('/products', adminMiddleware, addProductHandler);
 
 // Products: Edit
 const editProductHandler = (req, res) => {
-  const idx = store.products.findIndex(p => p.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Product not found.' });
+  const prodId = req.params.id;
+  let idx = store.products.findIndex(p => p.id === prodId || String(p.id).trim() === String(prodId).trim());
   if (req.body.price !== undefined) req.body.price = Number(req.body.price);
   if (req.body.originalPrice !== undefined) req.body.originalPrice = Number(req.body.originalPrice);
+
+  if (idx === -1) {
+    const newProd = {
+      id: prodId,
+      name: req.body.name || 'Crochet Creation',
+      category: req.body.category || 'Laptop Bags',
+      categorySlug: (req.body.category || 'laptop-bags').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      price: Number(req.body.price || 180),
+      originalPrice: req.body.originalPrice ? Number(req.body.originalPrice) : Math.round(Number(req.body.price || 180) * 1.25),
+      image: req.body.image || (Array.isArray(req.body.images) && req.body.images[0]) || '/images/laptop_bag_lavender.jpg',
+      images: Array.isArray(req.body.images) && req.body.images.length > 0 ? req.body.images : [req.body.image || '/images/laptop_bag_lavender.jpg'],
+      description: req.body.description || 'Handcrafted artisan crochet design.',
+      inStock: req.body.inStock !== false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    store.products.unshift(newProd);
+    saveStore();
+    return res.json({ message: 'Product updated!', product: newProd });
+  }
+
   store.products[idx] = { ...store.products[idx], ...req.body, updatedAt: new Date().toISOString() };
   saveStore();
   res.json({ message: 'Product updated!', product: store.products[idx] });

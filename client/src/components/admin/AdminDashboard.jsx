@@ -296,11 +296,7 @@ export default function AdminDashboard({ isOpen, onClose }) {
       if (res.ok) {
         const data = await res.json();
         if (data.product) {
-          if (editingProductId) {
-            updateProductLocal(data.product);
-          } else {
-            addProductLocal(data.product);
-          }
+          updateProductLocal(data.product);
         }
       }
 
@@ -344,13 +340,16 @@ export default function AdminDashboard({ isOpen, onClose }) {
   };
 
   const handleQuickPriceUpdate = async (prodId) => {
-    const newPrice = quickPrices[prodId];
-    if (!newPrice || isNaN(newPrice) || Number(newPrice) <= 0) return;
+    const rawVal = quickPrices[prodId];
+    if (rawVal === undefined || rawVal === '' || isNaN(rawVal) || Number(rawVal) <= 0) return;
+    const newPrice = Number(rawVal);
 
-    // Optimistically update immediately
+    // Optimistically update immediately in state and local storage
     const targetProd = products.find(p => p.id === prodId);
     if (targetProd) {
-      updateProductLocal({ ...targetProd, price: Number(newPrice) });
+      updateProductLocal({ ...targetProd, price: newPrice });
+    } else {
+      updateProductLocal({ id: prodId, price: newPrice });
     }
 
     try {
@@ -361,7 +360,13 @@ export default function AdminDashboard({ isOpen, onClose }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${activeToken}`
         },
-        body: JSON.stringify({ price: Number(newPrice) })
+        body: JSON.stringify({
+          price: newPrice,
+          name: targetProd?.name,
+          category: targetProd?.category,
+          image: targetProd?.image,
+          images: targetProd?.images
+        })
       });
       if (res.ok) {
         const data = await res.json();
