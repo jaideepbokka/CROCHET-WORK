@@ -131,6 +131,10 @@ export const initMySQL = async () => {
     isConnected = true;
     console.log(`🐬 [MYSQL SUCCESS] Connected to MySQL database "${database}" on ${host}:${port}!`);
 
+    // Schema upgrades: Ensure LONGTEXT image and JSON images columns exist
+    try { await pool.query('ALTER TABLE products MODIFY COLUMN image LONGTEXT'); } catch {}
+    try { await pool.query('ALTER TABLE products ADD COLUMN images JSON'); } catch {}
+
     // Seed Admin User
     const adminEmail = 'jdeep8823@gmail.com';
     const [existingAdmin] = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER(?)', [adminEmail]);
@@ -144,7 +148,7 @@ export const initMySQL = async () => {
           'usr-admin-1',
           'Deepu (Administrator)',
           adminEmail,
-          '9014567531',
+          '6305616316',
           hashedAdminPass,
           'admin',
           1,
@@ -153,7 +157,7 @@ export const initMySQL = async () => {
             id: 'addr-admin-1',
             isDefault: true,
             fullName: 'Deepu (Stitch & Hook)',
-            phone: '9014567531',
+            phone: '6305616316',
             street: 'Stitch & Hook Artisan Studio, Main Road',
             city: 'Hyderabad',
             state: 'Telangana',
@@ -194,6 +198,7 @@ export const getMySQLProducts = async () => {
       rating: r.rating ? Number(r.rating) : 5.0,
       reviewsCount: r.reviewsCount ? Number(r.reviewsCount) : 1,
       image: r.image || '/images/laptop_bag_lavender.jpg',
+      images: typeof r.images === 'string' ? JSON.parse(r.images || '[]') : (r.images || (r.image ? [r.image] : [])),
       description: r.description || '',
       dimensions: r.dimensions || '',
       yarnMaterial: r.yarnMaterial || '',
@@ -213,12 +218,16 @@ export const getMySQLProducts = async () => {
 export const upsertMySQLProduct = async (product) => {
   if (!pool || !isConnected || !product) return false;
   try {
+    const primaryImg = product.image || (Array.isArray(product.images) && product.images[0]) || '/images/laptop_bag_lavender.jpg';
+    const imagesList = Array.isArray(product.images) && product.images.length > 0 ? product.images : [primaryImg];
+    const imagesJson = JSON.stringify(imagesList);
+
     const sql = `
       INSERT INTO products (
         id, name, category, categorySlug, price, originalPrice, rating, reviewsCount,
-        image, description, dimensions, yarnMaterial, inStock, badge, colorOptions,
+        image, images, description, dimensions, yarnMaterial, inStock, badge, colorOptions,
         careInstructions, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         name = VALUES(name),
         category = VALUES(category),
@@ -228,6 +237,7 @@ export const upsertMySQLProduct = async (product) => {
         rating = VALUES(rating),
         reviewsCount = VALUES(reviewsCount),
         image = VALUES(image),
+        images = VALUES(images),
         description = VALUES(description),
         dimensions = VALUES(dimensions),
         yarnMaterial = VALUES(yarnMaterial),
@@ -251,7 +261,8 @@ export const upsertMySQLProduct = async (product) => {
       product.originalPrice ? Number(product.originalPrice) : Math.round(Number(product.price || 0) * 1.25),
       Number(product.rating || 5.0),
       Number(product.reviewsCount || 1),
-      product.image || '/images/laptop_bag_lavender.jpg',
+      primaryImg,
+      imagesJson,
       product.description || '',
       product.dimensions || '',
       product.yarnMaterial || '',
@@ -390,7 +401,7 @@ export const getMySQLOrders = async () => {
       subtotal: Number(r.subtotal || 0),
       shippingFee: Number(r.shippingFee || 0),
       totalAmount: Number(r.totalAmount || 0),
-      whatsappNumber: r.whatsappNumber || '9014567531',
+      whatsappNumber: r.whatsappNumber || '6305616316',
       status: r.status || 'WhatsApp Checkout Initiated',
       createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
       updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : undefined
@@ -425,7 +436,7 @@ export const upsertMySQLOrder = async (order) => {
       Number(order.subtotal || order.totalAmount || 0),
       Number(order.shippingFee || 0),
       Number(order.totalAmount || 0),
-      order.whatsappNumber || '9014567531',
+      order.whatsappNumber || '6305616316',
       order.status || 'WhatsApp Checkout Initiated',
       toMySQLDateTime(order.createdAt || new Date()),
       toMySQLDateTime(new Date())

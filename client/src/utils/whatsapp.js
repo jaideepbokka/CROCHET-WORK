@@ -1,10 +1,10 @@
 /**
  * WhatsApp Helper for Stitch & Hook
- * Business Phone: +91 9014567531
+ * Business Phone: +91 6305616316
  */
 
-export const BUSINESS_PHONE = '9014567531';
-export const FORMATTED_PHONE = '+91 9014567531';
+export const BUSINESS_PHONE = '6305616316';
+export const FORMATTED_PHONE = '+91 6305616316';
 
 /**
  * Generate Direct WhatsApp Purchase Link for a Single Item ("Buy Now")

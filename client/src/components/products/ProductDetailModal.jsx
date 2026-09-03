@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { 
   X, 
@@ -12,7 +12,9 @@ import {
   Layers, 
   Feather, 
   Info,
-  Truck
+  Truck,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { BUSINESS_PHONE, FORMATTED_PHONE } from '../../utils/whatsapp';
 
@@ -30,13 +32,33 @@ export default function ProductDetailModal() {
   const [selectedColor, setSelectedColor] = useState(
     product?.colorOptions?.[0] || 'Original'
   );
+  const [activeImgIndex, setActiveImgIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveImgIndex(0);
+  }, [product?.id]);
 
   if (!product) return null;
+
+  const imageList = (Array.isArray(product.images) && product.images.length > 0)
+    ? product.images
+    : [product.image || '/images/laptop_bag_lavender.jpg'];
+  const currentImage = imageList[activeImgIndex] || imageList[0] || product.image || '/images/laptop_bag_lavender.jpg';
 
   const isSaved = wishlist.includes(product.id);
   const discountPercent = product.originalPrice 
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) 
     : 0;
+
+  const handlePrevImage = (e) => {
+    e.stopPropagation();
+    setActiveImgIndex(prev => (prev === 0 ? imageList.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = (e) => {
+    e.stopPropagation();
+    setActiveImgIndex(prev => (prev === imageList.length - 1 ? 0 : prev + 1));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
@@ -62,7 +84,7 @@ export default function ProductDetailModal() {
         <div className="w-full md:w-1/2 bg-[#F5EFE6]/60 p-6 sm:p-8 flex flex-col items-center justify-center relative border-b md:border-b-0 md:border-r border-[#EDE4D6]">
           <div className="relative aspect-square w-full rounded-3xl overflow-hidden shadow-lg bg-white border border-gray-100 group">
             <img
-              src={product.image || '/images/laptop_bag_lavender.jpg'}
+              src={currentImage}
               alt={product.name}
               onError={(e) => {
                 e.target.onerror = null;
@@ -71,11 +93,61 @@ export default function ProductDetailModal() {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
             {product.badge && (
-              <span className="absolute top-4 left-4 badge-artisan-lavender px-3 py-1 rounded-full text-xs font-extrabold shadow-sm">
+              <span className="absolute top-4 left-4 badge-artisan-lavender px-3 py-1 rounded-full text-xs font-extrabold shadow-sm z-10">
                 {product.badge}
               </span>
             )}
+
+            {/* Multiple Images Navigation Controls */}
+            {imageList.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePrevImage}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 hover:bg-white text-gray-800 shadow-md flex items-center justify-center transition opacity-0 group-hover:opacity-100 z-10 cursor-pointer"
+                  title="Previous image"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextImage}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 hover:bg-white text-gray-800 shadow-md flex items-center justify-center transition opacity-0 group-hover:opacity-100 z-10 cursor-pointer"
+                  title="Next image"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <span className="absolute bottom-3 right-3 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-10">
+                  {activeImgIndex + 1} / {imageList.length}
+                </span>
+              </>
+            )}
           </div>
+
+          {/* Multiple Image Thumbnails Strip */}
+          {imageList.length > 1 && (
+            <div className="flex items-center gap-2 mt-3.5 overflow-x-auto max-w-full pb-1">
+              {imageList.map((img, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveImgIndex(idx)}
+                  className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-all cursor-pointer shrink-0 ${
+                    activeImgIndex === idx
+                      ? 'border-[#8A68E8] ring-2 ring-[#8A68E8]/30 scale-105 shadow-sm'
+                      : 'border-transparent opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <img
+                    src={img}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.target.src = '/images/laptop_bag_lavender.jpg'; }}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="mt-4 flex items-center gap-2 text-xs font-bold text-[#1D4548]">
             <Sparkles className="w-4 h-4 text-[#8A68E8]" />

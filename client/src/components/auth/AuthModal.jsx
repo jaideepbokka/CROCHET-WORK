@@ -634,7 +634,7 @@ export default function AuthModal() {
 
                 {/* Footer */}
                 <div className="mt-5 text-center text-[11px] text-gray-400">
-                  <span>Direct WhatsApp orders • 100% Handcrafted • +91 9014567531</span>
+                  <span>Direct WhatsApp orders • 100% Handcrafted • +91 6305616316</span>
                 </div>
               </>
             )}

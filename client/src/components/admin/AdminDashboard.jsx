@@ -28,7 +28,8 @@ import {
   MapPin,
   Phone,
   User,
-  AlertTriangle
+  AlertTriangle,
+  Star
 } from 'lucide-react';
 import { FORMATTED_PHONE, BUSINESS_PHONE } from '../../utils/whatsapp';
 
@@ -49,7 +50,10 @@ export default function AdminDashboard({ isOpen, onClose }) {
   const [pCategory, setPCategory] = useState('Laptop Bags');
   const [pPrice, setPPrice] = useState('180');
   const [pOriginalPrice, setPOriginalPrice] = useState('220');
-  const [pImage, setPImage] = useState('/images/laptop_bag_lavender.jpg');
+  const [pImages, setPImages] = useState(['/images/laptop_bag_lavender.jpg']);
+  const [customImageUrl, setCustomImageUrl] = useState('');
+  const [activePreviewIndex, setActivePreviewIndex] = useState(0);
+  const pImage = pImages[activePreviewIndex] || pImages[0] || '/images/laptop_bag_lavender.jpg';
   const [pDescription, setPDescription] = useState('Handmade with double-waffle stitch using soft milk cotton yarn.');
   const [pDimensions, setPDimensions] = useState('14" x 10.5" (Fits 13-14" laptops)');
   const [pYarn, setPYarn] = useState('100% Premium Milk Cotton Yarn');
@@ -73,28 +77,90 @@ export default function AdminDashboard({ isOpen, onClose }) {
     { label: 'Daisy Bell Charm', value: '/images/keychain_daisy.jpg' }
   ];
 
-  // Handler for uploading custom image from computer or mobile
-  const handleImageFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Handler for uploading multiple custom images from computer or mobile
+  const handleMultipleImageUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (!file.type.startsWith('image/')) {
-      showToast('Please select a valid image file (PNG, JPG, WEBP, GIF)', 'error');
+    const validFiles = files.filter(f => f.type.startsWith('image/'));
+    if (validFiles.length === 0) {
+      showToast('Please select valid image files (PNG, JPG, WEBP, GIF)', 'error');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result;
-      if (dataUrl) {
-        setPImage(dataUrl);
-        showToast('Image uploaded successfully! 📸', 'success');
+    let loaded = 0;
+    const loadedDataUrls = [];
+
+    validFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          loadedDataUrls.push(event.target.result);
+        }
+        loaded++;
+        if (loaded === validFiles.length) {
+          setPImages((prev) => {
+            const cleanPrev = prev.filter(img => img !== '/images/laptop_bag_lavender.jpg');
+            return [...cleanPrev, ...loadedDataUrls];
+          });
+          setActivePreviewIndex(0);
+          showToast(`${validFiles.length} photo${validFiles.length > 1 ? 's' : ''} added successfully! 📸`, 'success');
+        }
+      };
+      reader.onerror = () => {
+        loaded++;
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const handleAddCustomImageUrl = () => {
+    if (!customImageUrl.trim()) return;
+    const url = customImageUrl.trim();
+    if (pImages.includes(url)) {
+      showToast('Image URL is already added!', 'info');
+      return;
+    }
+    setPImages((prev) => {
+      const cleanPrev = prev.filter(img => img !== '/images/laptop_bag_lavender.jpg');
+      return [...cleanPrev, url];
+    });
+    setCustomImageUrl('');
+    showToast('Image URL added to gallery! 🖼️', 'success');
+  };
+
+  const handleTogglePreset = (presetVal) => {
+    setPImages((prev) => {
+      if (prev.includes(presetVal)) {
+        const filtered = prev.filter(item => item !== presetVal);
+        return filtered.length > 0 ? filtered : [presetVal];
+      } else {
+        const cleanPrev = prev.filter(img => img !== '/images/laptop_bag_lavender.jpg');
+        return [...cleanPrev, presetVal];
       }
-    };
-    reader.onerror = () => {
-      showToast('Failed to read image file. Please try another image.', 'error');
-    };
-    reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveImage = (indexToRemove) => {
+    setPImages((prev) => {
+      const filtered = prev.filter((_, idx) => idx !== indexToRemove);
+      return filtered.length > 0 ? filtered : ['/images/laptop_bag_lavender.jpg'];
+    });
+    if (activePreviewIndex >= indexToRemove && activePreviewIndex > 0) {
+      setActivePreviewIndex(prev => prev - 1);
+    }
+  };
+
+  const handleMakeCoverImage = (index) => {
+    setPImages((prev) => {
+      if (index === 0 || !prev[index]) return prev;
+      const target = prev[index];
+      const remaining = prev.filter((_, idx) => idx !== index);
+      return [target, ...remaining];
+    });
+    setActivePreviewIndex(0);
+    showToast('Cover photo updated! ⭐', 'success');
   };
 
   // Fetch all orders for admin
@@ -131,7 +197,9 @@ export default function AdminDashboard({ isOpen, onClose }) {
     setPCategory('Laptop Bags');
     setPPrice('180');
     setPOriginalPrice('220');
-    setPImage('/images/laptop_bag_lavender.jpg');
+    setPImages(['/images/laptop_bag_lavender.jpg']);
+    setCustomImageUrl('');
+    setActivePreviewIndex(0);
     setPDescription('Handmade with double-waffle stitch using soft milk cotton yarn.');
     setPDimensions('14" x 10.5" (Fits 13-14" laptops)');
     setPYarn('100% Premium Milk Cotton Yarn');
@@ -151,7 +219,12 @@ export default function AdminDashboard({ isOpen, onClose }) {
     setPCategory(prod.category || 'Laptop Bags');
     setPPrice((prod.price || '').toString());
     setPOriginalPrice((prod.originalPrice || Math.round((prod.price || 150) * 1.25)).toString());
-    setPImage(prod.image || '/images/laptop_bag_lavender.jpg');
+    const initialImages = (Array.isArray(prod.images) && prod.images.length > 0)
+      ? prod.images
+      : [prod.image || '/images/laptop_bag_lavender.jpg'];
+    setPImages(initialImages);
+    setCustomImageUrl('');
+    setActivePreviewIndex(0);
     setPDescription(prod.description || '');
     setPDimensions(prod.dimensions || '');
     setPYarn(prod.yarnMaterial || '');
@@ -176,6 +249,9 @@ export default function AdminDashboard({ isOpen, onClose }) {
     setSavingProduct(true);
     
     const prodId = editingProductId || 'prod-' + Date.now();
+    const primaryCover = pImages[0] || '/images/laptop_bag_lavender.jpg';
+    const allImages = pImages.length > 0 ? pImages : [primaryCover];
+
     const payload = {
       id: prodId,
       name: pName.trim(),
@@ -183,7 +259,8 @@ export default function AdminDashboard({ isOpen, onClose }) {
       categorySlug: (pCategory || 'laptop-bags').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       price: Number(pPrice),
       originalPrice: pOriginalPrice ? Number(pOriginalPrice) : Math.round(Number(pPrice) * 1.25),
-      image: pImage || '/images/laptop_bag_lavender.jpg',
+      image: primaryCover,
+      images: allImages,
       description: pDescription || 'Handcrafted artisan crochet design.',
       dimensions: pDimensions || 'Standard handcrafted dimensions',
       yarnMaterial: pYarn || '100% Premium Milk Cotton Yarn',
@@ -839,81 +916,70 @@ export default function AdminDashboard({ isOpen, onClose }) {
 
                   <div>
                     <label className="block text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                      <span>Product Image Asset *</span>
-                      <span className="text-[10px] text-[#8A68E8] font-bold">Upload file, choose preset, or paste URL</span>
+                      <span className="flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-[#8A68E8]" />
+                        <span>Product Images Gallery ({pImages.length} photo{pImages.length > 1 ? 's' : ''}) *</span>
+                      </span>
+                      <span className="text-[10px] text-[#8A68E8] font-bold">Select multiple photos from device, paste URLs, or choose presets</span>
                     </label>
 
-                    <div className="flex flex-col sm:flex-row gap-3 items-start p-3 bg-[#FAF8F5] rounded-2xl border border-[#EDE4D6]">
-                      <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-gray-200 bg-white shrink-0 shadow-xs flex items-center justify-center">
-                        {pImage ? (
-                          <img
-                            src={pImage}
-                            alt="Product Preview"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = '/images/laptop_bag_lavender.jpg';
-                            }}
+                    <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EDE4D6] space-y-3.5">
+                      {/* Action Bar: Multiple Upload + Direct URL */}
+                      <div className="flex flex-col sm:flex-row gap-2.5">
+                        {/* Device Multi-Photo Uploader */}
+                        <label className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2.5 bg-white border-2 border-dashed border-[#8A68E8] text-[#5F32C4] hover:bg-[#F3EEFC] rounded-xl text-xs font-bold cursor-pointer transition shadow-xs">
+                          <Upload className="w-4 h-4 text-[#8A68E8]" />
+                          <span>Upload Photos from Device (Multi-Select)</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleMultipleImageUpload}
+                            className="hidden"
                           />
-                        ) : (
-                          <ImageIcon className="w-8 h-8 text-gray-300" />
-                        )}
-                        {pImage && (
-                          <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                            Live Preview
-                          </span>
-                        )}
-                      </div>
+                        </label>
 
-                      <div className="flex-1 w-full space-y-2.5">
-                        {/* Device File Uploader */}
-                        <div className="flex items-center gap-2">
-                          <label className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2.5 bg-white border border-[#CBB6ED] text-[#5F32C4] hover:bg-[#F3EEFC] rounded-xl text-xs font-bold cursor-pointer transition shadow-xs">
-                            <Upload className="w-4 h-4 text-[#8A68E8]" />
-                            <span>Upload Photo from Device (PC / Phone)</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleImageFileUpload}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-
-                        {/* Direct URL input */}
-                        <div className="relative">
+                        {/* Direct URL input with Add button */}
+                        <div className="flex-1 flex gap-1.5">
                           <input
                             type="text"
-                            value={pImage}
-                            onChange={(e) => setPImage(e.target.value)}
-                            placeholder="or paste custom Image URL (https://...)"
-                            className="w-full pl-3 pr-8 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-[#8A68E8]"
+                            value={customImageUrl}
+                            onChange={(e) => setCustomImageUrl(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddCustomImageUrl();
+                              }
+                            }}
+                            placeholder="or paste Image URL (https://...)"
+                            className="flex-1 px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-[#8A68E8]"
                           />
-                          {pImage && (
-                            <button
-                              type="button"
-                              onClick={() => setPImage('')}
-                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold cursor-pointer"
-                              title="Clear Image"
-                            >
-                              ✕
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={handleAddCustomImageUrl}
+                            disabled={!customImageUrl.trim()}
+                            className="px-3 py-2 rounded-xl bg-[#8A68E8] hover:bg-[#7454D1] disabled:opacity-40 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add
+                          </button>
                         </div>
+                      </div>
 
-                        {/* Curated Presets */}
-                        <div>
-                          <p className="text-[10px] font-extrabold text-gray-500 mb-1.5 uppercase tracking-wider">
-                            Or select from artisan presets:
-                          </p>
-                          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
-                            {curatedImageOptions.map((opt) => (
+                      {/* Artisan Presets */}
+                      <div>
+                        <p className="text-[10px] font-extrabold text-gray-500 mb-1.5 uppercase tracking-wider">
+                          Or add artisan presets to gallery:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                          {curatedImageOptions.map((opt) => {
+                            const isSelected = pImages.includes(opt.value);
+                            return (
                               <button
                                 key={opt.value}
                                 type="button"
-                                onClick={() => setPImage(opt.value)}
+                                onClick={() => handleTogglePreset(opt.value)}
                                 className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition flex items-center gap-1.5 cursor-pointer ${
-                                  pImage === opt.value
+                                  isSelected
                                     ? 'bg-[#EFE9FA] border-[#8A68E8] text-[#5F32C4] shadow-xs ring-1 ring-[#8A68E8]'
                                     : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                                 }`}
@@ -925,9 +991,89 @@ export default function AdminDashboard({ isOpen, onClose }) {
                                   onError={(e) => { e.target.style.display = 'none'; }}
                                 />
                                 <span className="truncate max-w-[120px]">{opt.label}</span>
+                                {isSelected ? <Check className="w-3 h-3 text-[#8A68E8]" /> : <Plus className="w-2.5 h-2.5 text-gray-400" />}
                               </button>
-                            ))}
-                          </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Multi-Image Thumbnail Gallery Grid */}
+                      <div className="pt-2.5 border-t border-[#EDE4D6]/80">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-700">
+                            Selected Images ({pImages.length}):
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            ★ Cover Image will be shown on catalog cards
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
+                          {pImages.map((imgUrl, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => setActivePreviewIndex(idx)}
+                              className={`relative group rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-white aspect-square shadow-xs ${
+                                idx === 0
+                                  ? 'border-[#8A68E8] ring-2 ring-[#8A68E8]/30'
+                                  : activePreviewIndex === idx
+                                  ? 'border-[#4E878C] ring-2 ring-[#4E878C]/20'
+                                  : 'border-gray-200 hover:border-gray-400'
+                              }`}
+                            >
+                              <img
+                                src={imgUrl}
+                                alt={`Product ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = '/images/laptop_bag_lavender.jpg';
+                                }}
+                              />
+
+                              {/* Primary / Cover Badge or Set Cover Button */}
+                              {idx === 0 ? (
+                                <span className="absolute top-1 left-1 bg-[#8A68E8] text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-xs flex items-center gap-0.5 z-10">
+                                  <Star className="w-2 h-2 fill-current" /> Cover
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMakeCoverImage(idx);
+                                  }}
+                                  className="absolute top-1 left-1 bg-black/70 hover:bg-[#8A68E8] text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition shadow-xs cursor-pointer z-10"
+                                  title="Make this the catalog cover"
+                                >
+                                  Make Cover
+                                </button>
+                              )}
+
+                              {/* Remove Button */}
+                              {pImages.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveImage(idx);
+                                  }}
+                                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center text-[10px] font-bold opacity-80 group-hover:opacity-100 transition shadow-xs cursor-pointer z-10"
+                                  title="Remove image"
+                                >
+                                  ✕
+                                </button>
+                              )}
+
+                              {/* Currently Viewing Indicator */}
+                              {activePreviewIndex === idx && (
+                                <span className="absolute bottom-1 right-1 bg-black/75 text-white text-[8px] px-1 py-0.5 rounded font-bold">
+                                  Preview
+                                </span>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1159,81 +1305,70 @@ export default function AdminDashboard({ isOpen, onClose }) {
 
               <div>
                 <label className="block text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Product Image Asset *</span>
-                  <span className="text-[10px] text-[#8A68E8] font-bold">Upload file, choose preset, or paste URL</span>
+                  <span className="flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-[#8A68E8]" />
+                    <span>Product Images Gallery ({pImages.length} photo{pImages.length > 1 ? 's' : ''}) *</span>
+                  </span>
+                  <span className="text-[10px] text-[#8A68E8] font-bold">Select multiple photos from device, paste URLs, or choose presets</span>
                 </label>
 
-                <div className="flex flex-col sm:flex-row gap-3 items-start p-3 bg-[#FAF8F5] rounded-2xl border border-[#EDE4D6]">
-                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-gray-200 bg-white shrink-0 shadow-xs flex items-center justify-center">
-                    {pImage ? (
-                      <img
-                        src={pImage}
-                        alt="Product Preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = '/images/laptop_bag_lavender.jpg';
-                        }}
+                <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EDE4D6] space-y-3.5">
+                  {/* Action Bar: Multiple Upload + Direct URL */}
+                  <div className="flex flex-col sm:flex-row gap-2.5">
+                    {/* Device Multi-Photo Uploader */}
+                    <label className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2.5 bg-white border-2 border-dashed border-[#8A68E8] text-[#5F32C4] hover:bg-[#F3EEFC] rounded-xl text-xs font-bold cursor-pointer transition shadow-xs">
+                      <Upload className="w-4 h-4 text-[#8A68E8]" />
+                      <span>Upload Photos from Device (Multi-Select)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleMultipleImageUpload}
+                        className="hidden"
                       />
-                    ) : (
-                      <ImageIcon className="w-8 h-8 text-gray-300" />
-                    )}
-                    {pImage && (
-                      <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                        Live Preview
-                      </span>
-                    )}
-                  </div>
+                    </label>
 
-                  <div className="flex-1 w-full space-y-2.5">
-                    {/* Device File Uploader */}
-                    <div className="flex items-center gap-2">
-                      <label className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2.5 bg-white border border-[#CBB6ED] text-[#5F32C4] hover:bg-[#F3EEFC] rounded-xl text-xs font-bold cursor-pointer transition shadow-xs">
-                        <Upload className="w-4 h-4 text-[#8A68E8]" />
-                        <span>Upload Photo from Device (PC / Phone)</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageFileUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-
-                    {/* Direct URL input */}
-                    <div className="relative">
+                    {/* Direct URL input with Add button */}
+                    <div className="flex-1 flex gap-1.5">
                       <input
                         type="text"
-                        value={pImage}
-                        onChange={(e) => setPImage(e.target.value)}
-                        placeholder="or paste custom Image URL (https://...)"
-                        className="w-full pl-3 pr-8 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-[#8A68E8]"
+                        value={customImageUrl}
+                        onChange={(e) => setCustomImageUrl(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomImageUrl();
+                          }
+                        }}
+                        placeholder="or paste Image URL (https://...)"
+                        className="flex-1 px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-[#8A68E8]"
                       />
-                      {pImage && (
-                        <button
-                          type="button"
-                          onClick={() => setPImage('')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold cursor-pointer"
-                          title="Clear Image"
-                        >
-                          ✕
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={handleAddCustomImageUrl}
+                        disabled={!customImageUrl.trim()}
+                        className="px-3 py-2 rounded-xl bg-[#8A68E8] hover:bg-[#7454D1] disabled:opacity-40 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add
+                      </button>
                     </div>
+                  </div>
 
-                    {/* Curated Presets */}
-                    <div>
-                      <p className="text-[10px] font-extrabold text-gray-500 mb-1.5 uppercase tracking-wider">
-                        Or select from artisan presets:
-                      </p>
-                      <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
-                        {curatedImageOptions.map((opt) => (
+                  {/* Artisan Presets */}
+                  <div>
+                    <p className="text-[10px] font-extrabold text-gray-500 mb-1.5 uppercase tracking-wider">
+                      Or add artisan presets to gallery:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                      {curatedImageOptions.map((opt) => {
+                        const isSelected = pImages.includes(opt.value);
+                        return (
                           <button
                             key={opt.value}
                             type="button"
-                            onClick={() => setPImage(opt.value)}
+                            onClick={() => handleTogglePreset(opt.value)}
                             className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition flex items-center gap-1.5 cursor-pointer ${
-                              pImage === opt.value
+                              isSelected
                                 ? 'bg-[#EFE9FA] border-[#8A68E8] text-[#5F32C4] shadow-xs ring-1 ring-[#8A68E8]'
                                 : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                             }`}
@@ -1245,9 +1380,89 @@ export default function AdminDashboard({ isOpen, onClose }) {
                               onError={(e) => { e.target.style.display = 'none'; }}
                             />
                             <span className="truncate max-w-[120px]">{opt.label}</span>
+                            {isSelected ? <Check className="w-3 h-3 text-[#8A68E8]" /> : <Plus className="w-2.5 h-2.5 text-gray-400" />}
                           </button>
-                        ))}
-                      </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Multi-Image Thumbnail Gallery Grid */}
+                  <div className="pt-2.5 border-t border-[#EDE4D6]/80">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-700">
+                        Selected Images ({pImages.length}):
+                      </span>
+                      <span className="text-[10px] text-gray-400">
+                        ★ Cover Image will be shown on catalog cards
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
+                      {pImages.map((imgUrl, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => setActivePreviewIndex(idx)}
+                          className={`relative group rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-white aspect-square shadow-xs ${
+                            idx === 0
+                              ? 'border-[#8A68E8] ring-2 ring-[#8A68E8]/30'
+                              : activePreviewIndex === idx
+                              ? 'border-[#4E878C] ring-2 ring-[#4E878C]/20'
+                              : 'border-gray-200 hover:border-gray-400'
+                          }`}
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`Product ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = '/images/laptop_bag_lavender.jpg';
+                            }}
+                          />
+
+                          {/* Primary / Cover Badge or Set Cover Button */}
+                          {idx === 0 ? (
+                            <span className="absolute top-1 left-1 bg-[#8A68E8] text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-xs flex items-center gap-0.5 z-10">
+                              <Star className="w-2 h-2 fill-current" /> Cover
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMakeCoverImage(idx);
+                              }}
+                              className="absolute top-1 left-1 bg-black/70 hover:bg-[#8A68E8] text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition shadow-xs cursor-pointer z-10"
+                              title="Make this the catalog cover"
+                            >
+                              Make Cover
+                            </button>
+                          )}
+
+                          {/* Remove Button */}
+                          {pImages.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveImage(idx);
+                              }}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center text-[10px] font-bold opacity-80 group-hover:opacity-100 transition shadow-xs cursor-pointer z-10"
+                              title="Remove image"
+                            >
+                              ✕
+                            </button>
+                          )}
+
+                          {/* Currently Viewing Indicator */}
+                          {activePreviewIndex === idx && (
+                            <span className="absolute bottom-1 right-1 bg-black/75 text-white text-[8px] px-1 py-0.5 rounded font-bold">
+                              Preview
+                            </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>

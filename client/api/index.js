@@ -194,7 +194,7 @@ const store = {
       id: 'usr-admin-1',
       name: 'Deepu (Administrator)',
       email: 'jdeep8823@gmail.com',
-      phone: '9014567531',
+      phone: '6305616316',
       password: bcrypt.hashSync('Luckydeepu', 10),
       role: 'admin',
       twoFactorEnabled: true,
@@ -233,8 +233,9 @@ loadStore();
 
 // Transporter with direct Gmail service
 const getTransporter = () => {
-  const user = process.env.SMTP_USER || 'jdeep8823@gmail.com';
-  const pass = process.env.SMTP_PASS || 'ehzm xbjz dmly spct';
+  const user = (process.env.SMTP_USER || 'jdeep8823@gmail.com').trim();
+  const rawPass = process.env.SMTP_PASS || 'reuq wyfj usvb riys';
+  const pass = rawPass.trim().replace(/\s+/g, '');
   try {
     return nodemailer.createTransport({
       service: 'gmail',
@@ -253,7 +254,7 @@ const sendOtp = async (user, method = 'both') => {
   store.otps[user.id] = {
     userId: user.id,
     email: user.email,
-    phone: user.phone || '9014567531',
+    phone: user.phone || '6305616316',
     emailOtp: otpCode,
     smsOtp: otpCode,
     method,
@@ -262,11 +263,12 @@ const sendOtp = async (user, method = 'both') => {
   };
 
   const deliveryTasks = [];
+  let emailPreviewUrl = null;
 
   // 1. Send SMS via 2Factor.in
   if (method === 'sms' || method === 'both') {
     const apiKey = process.env.TWO_FACTOR_API_KEY || '6b1b0753-9ca1-11f1-9cb1-0200cd936042';
-    const cleanDigits = (user.phone || '9014567531').replace(/\D/g, '');
+    const cleanDigits = (user.phone || '6305616316').replace(/\D/g, '');
     const targetPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
     const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${targetPhone}/${otpCode}`;
 
@@ -278,33 +280,65 @@ const sendOtp = async (user, method = 'both') => {
     );
   }
 
-  // 2. Send Email via Gmail SMTP
+  // 2. Send Email via Gmail SMTP with Ethereal Fallback
   if (method === 'email' || method === 'both') {
-    const transporter = getTransporter();
-    if (transporter) {
-      const fromUser = process.env.SMTP_USER || 'jdeep8823@gmail.com';
-      deliveryTasks.push(
-        transporter.sendMail({
-          from: `"Stitch & Hook" <${fromUser}>`,
-          to: user.email,
-          subject: `Your Stitch & Hook Security Code: ${otpCode}`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 500px; padding: 24px; background: #FAF8F5; border-radius: 12px; border: 1px solid #E0D4F5;">
-              <h2 style="color: #1D4548; margin-top: 0;">🧵 Stitch & Hook Security Code</h2>
-              <p>Hello <strong>${user.name || 'Artisan Friend'}</strong>,</p>
-              <p>Your 2-Factor Authentication verification code is:</p>
-              <div style="background: #EFE9FA; padding: 14px 28px; border-radius: 8px; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #5F32C4; display: inline-block; margin: 12px 0;">
-                ${otpCode}
-              </div>
-              <p style="font-size: 13px; color: #666; margin-top: 16px;">Valid for 5 minutes. Never share this code with anyone.</p>
-              <p style="font-size: 12px; color: #999;">WhatsApp Support: +91 9014567531</p>
-            </div>
-          `
-        })
-        .then(info => console.log('✉️ Gmail SMTP Delivered! Message ID:', info.messageId))
-        .catch(err => console.error('✉️ Gmail SMTP Error:', err.message))
-      );
-    }
+    const emailTask = (async () => {
+      let sent = false;
+      const transporter = getTransporter();
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; padding: 24px; background: #FAF8F5; border-radius: 12px; border: 1px solid #E0D4F5;">
+          <h2 style="color: #1D4548; margin-top: 0;">🧵 Stitch & Hook Security Code</h2>
+          <p>Hello <strong>${user.name || 'Artisan Friend'}</strong>,</p>
+          <p>Your 2-Factor Authentication verification code is:</p>
+          <div style="background: #EFE9FA; padding: 14px 28px; border-radius: 8px; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #5F32C4; display: inline-block; margin: 12px 0;">
+            ${otpCode}
+          </div>
+          <p style="font-size: 13px; color: #666; margin-top: 16px;">Valid for 5 minutes. Never share this code with anyone.</p>
+          <p style="font-size: 12px; color: #999;">WhatsApp Support: +91 6305616316</p>
+        </div>
+      `;
+
+      if (transporter) {
+        try {
+          const fromUser = process.env.SMTP_USER || 'jdeep8823@gmail.com';
+          const info = await transporter.sendMail({
+            from: `"Stitch & Hook" <${fromUser}>`,
+            to: user.email,
+            subject: `Your Stitch & Hook Security Code: ${otpCode}`,
+            html: emailHtml
+          });
+          console.log('✉️ Gmail SMTP Delivered! Message ID:', info.messageId);
+          sent = true;
+        } catch (err) {
+          console.warn('⚠️ Primary Gmail dispatch failed:', err.message);
+        }
+      }
+
+      if (!sent) {
+        try {
+          const testAccount = await nodemailer.createTestAccount();
+          const testTransporter = nodemailer.createTransport({
+            host: 'smtp.ethereal.email',
+            port: 587,
+            secure: false,
+            auth: { user: testAccount.user, pass: testAccount.pass }
+          });
+          const fallbackInfo = await testTransporter.sendMail({
+            from: '"Stitch & Hook Security" <security@stitchandhook.art>',
+            to: user.email,
+            subject: `Your Stitch & Hook Security Code: ${otpCode}`,
+            html: emailHtml
+          });
+          emailPreviewUrl = nodemailer.getTestMessageUrl(fallbackInfo);
+          console.log('📬 [FALLBACK MAILBOX] Real-Time Web Mailbox URL:', emailPreviewUrl);
+          console.log(`🔑 [SECURITY OTP CODE] ${user.email} -> ${otpCode}`);
+        } catch (fbErr) {
+          console.warn('Ethereal fallback warning:', fbErr.message);
+        }
+      }
+    })();
+
+    deliveryTasks.push(emailTask);
   }
 
   await Promise.allSettled(deliveryTasks);
@@ -326,10 +360,11 @@ const sendOtp = async (user, method = 'both') => {
   return {
     userId: user.id,
     email: user.email,
-    phone: user.phone ? `******${user.phone.slice(-4)}` : '******7531',
+    phone: user.phone ? `******${user.phone.slice(-4)}` : '******6316',
     expiresInSeconds: 300,
     requestedMethod: method,
-    twoFactorToken
+    twoFactorToken,
+    previewUrl: emailPreviewUrl
   };
 };
 
@@ -376,7 +411,7 @@ const healthHandler = (req, res) => {
   res.status(200).json({
     status: 'online',
     storeName: 'Stitch & Hook',
-    businessWhatsApp: process.env.WHATSAPP_BUSINESS_NUMBER || '9014567531',
+    businessWhatsApp: process.env.WHATSAPP_BUSINESS_NUMBER || '6305616316',
     timestamp: new Date().toISOString()
   });
 };
@@ -470,7 +505,7 @@ const resendOtpHandler = async (req, res) => {
         id: userId || 'usr-' + Date.now(),
         email: email || 'customer@stitchhook.com',
         name: 'Customer',
-        phone: '9014567531',
+        phone: '6305616316',
         role: 'customer'
       };
     }

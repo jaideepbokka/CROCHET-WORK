@@ -28,7 +28,7 @@ export default function Footer() {
             </div>
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-gray-900">Direct WhatsApp Ordering</h4>
-              <p className="text-xs text-gray-500 mt-0.5">Instant coordination on <strong>+{BUSINESS_PHONE}</strong>.</p>
+              <p className="text-xs text-gray-500 mt-0.5">Instant coordination on <strong>{FORMATTED_PHONE}</strong>.</p>
             </div>
           </div>
 

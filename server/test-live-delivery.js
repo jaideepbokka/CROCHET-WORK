@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 async function testDelivery() {
   console.log('Testing 2Factor.in SMS...');
   try {
-    const smsRes = await fetch('https://2factor.in/API/V1/6b1b0753-9ca1-11f1-9cb1-0200cd936042/SMS/9014567531/123456');
+    const smsRes = await fetch('https://2factor.in/API/V1/6b1b0753-9ca1-11f1-9cb1-0200cd936042/SMS/6305616316/123456');
     const smsData = await smsRes.json();
     console.log('📱 2Factor.in SMS Result:', smsData);
   } catch (err) {
@@ -16,7 +16,7 @@ async function testDelivery() {
       service: 'gmail',
       auth: {
         user: 'jdeep8823@gmail.com',
-        pass: 'ehzm xbjz dmly spct'
+        pass: 'reuqwyfjusvbriys'
       }
     });
 

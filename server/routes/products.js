@@ -55,10 +55,13 @@ router.get('/:id', (req, res) => {
  */
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { name, category, price, originalPrice, description, image, dimensions, yarnMaterial, badge, colorOptions, inStock } = req.body;
+    const { name, category, price, originalPrice, description, image, images, dimensions, yarnMaterial, badge, colorOptions, inStock } = req.body;
     if (!name || !category || !price) {
       return res.status(400).json({ error: 'Product name, category, and price are required.' });
     }
+
+    const primaryImage = image || (Array.isArray(images) && images[0]) || '/images/laptop_bag_lavender.jpg';
+    const imagesList = Array.isArray(images) && images.length > 0 ? images : [primaryImage];
 
     const newProduct = await db.addProduct({
       name: name.trim(),
@@ -66,7 +69,8 @@ router.post('/', requireAdmin, async (req, res) => {
       price: Number(price),
       originalPrice: originalPrice ? Number(originalPrice) : null,
       description: description || 'Handcrafted artisan crochet design.',
-      image: image || '/images/laptop_bag_lavender.jpg',
+      image: primaryImage,
+      images: imagesList,
       dimensions: dimensions || '',
       yarnMaterial: yarnMaterial || '100% Premium Milk Cotton Yarn',
       badge: badge || 'New',

@@ -37,7 +37,7 @@ router.post('/', async (req, res) => {
       subtotal: subtotal || items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
       shippingFee: shippingFee || 0,
       totalAmount: totalAmount || items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-      whatsappNumber: whatsappNumber || process.env.WHATSAPP_BUSINESS_NUMBER || '9014567531'
+      whatsappNumber: whatsappNumber || process.env.WHATSAPP_BUSINESS_NUMBER || '6305616316'
     });
 
     return res.status(201).json({

@@ -43,7 +43,7 @@ const handleHealth = (req, res) => {
   res.status(200).json({
     status: 'online',
     storeName: 'Stitch & Hook',
-    businessWhatsApp: process.env.WHATSAPP_BUSINESS_NUMBER || '9014567531',
+    businessWhatsApp: process.env.WHATSAPP_BUSINESS_NUMBER || '6305616316',
     smsProvider: process.env.SMS_PROVIDER || '2factor',
     twoFactorKeyConfigured: Boolean(process.env.TWO_FACTOR_API_KEY),
     timestamp: new Date().toISOString()
@@ -65,7 +65,7 @@ if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`\n🧵 ✨ ==============================================`);
     console.log(`✨ Stitch & Hook Backend Server running on http://localhost:${PORT}`);
-    console.log(`📱 WhatsApp Direct Ordering: +91 ${process.env.WHATSAPP_BUSINESS_NUMBER || '9014567531'}`);
+    console.log(`📱 WhatsApp Direct Ordering: +91 ${process.env.WHATSAPP_BUSINESS_NUMBER || '6305616316'}`);
     console.log(`🔑 2Factor.in SMS Gateway: ${process.env.TWO_FACTOR_API_KEY ? 'Active (' + process.env.TWO_FACTOR_API_KEY.slice(0, 8) + '...)' : 'Not Configured'}`);
     console.log(`✉️ SMTP Email Gateway: ${process.env.SMTP_USER || 'Not Configured'}`);
     console.log(`🧵 ==============================================\n`);

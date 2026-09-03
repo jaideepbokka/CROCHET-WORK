@@ -324,7 +324,7 @@ class Store {
       id: 'usr-admin-1',
       name: 'Deepu (Administrator)',
       email: adminEmail,
-      phone: '9014567531',
+      phone: '6305616316',
       password: hashedAdminPass,
       role: 'admin',
       twoFactorEnabled: true,
@@ -334,7 +334,7 @@ class Store {
           id: 'addr-admin-1',
           isDefault: true,
           fullName: 'Deepu (Stitch & Hook)',
-          phone: '9014567531',
+          phone: '6305616316',
           street: 'Stitch & Hook Artisan Studio, Main Road',
           city: 'Hyderabad',
           state: 'Telangana',
@@ -424,6 +424,8 @@ class Store {
 
   async addProduct(productData) {
     const slug = productData.category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const primaryImage = productData.image || (Array.isArray(productData.images) && productData.images[0]) || '/images/laptop_bag_lavender.jpg';
+    const imagesList = Array.isArray(productData.images) && productData.images.length > 0 ? productData.images : [primaryImage];
     const newProduct = {
       id: 'prod-' + Date.now(),
       name: productData.name,
@@ -433,7 +435,8 @@ class Store {
       originalPrice: productData.originalPrice ? Number(productData.originalPrice) : Math.round(Number(productData.price) * 1.25),
       rating: productData.rating || 5.0,
       reviewsCount: productData.reviewsCount || 1,
-      image: productData.image || '/images/laptop_bag_lavender.jpg',
+      image: primaryImage,
+      images: imagesList,
       description: productData.description || 'Handmade artisan crochet creation.',
       dimensions: productData.dimensions || 'Handcrafted size',
       yarnMaterial: productData.yarnMaterial || '100% Premium Milk Cotton Yarn',
@@ -456,6 +459,9 @@ class Store {
     if (updates.originalPrice !== undefined) updates.originalPrice = Number(updates.originalPrice);
     if (updates.category && !updates.categorySlug) {
       updates.categorySlug = updates.category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    }
+    if (Array.isArray(updates.images) && updates.images.length > 0 && !updates.image) {
+      updates.image = updates.images[0];
     }
     this.data.products[idx] = { ...this.data.products[idx], ...updates, updatedAt: new Date().toISOString() };
     this.save();
@@ -484,7 +490,7 @@ class Store {
       subtotal: orderData.subtotal,
       shippingFee: orderData.shippingFee || 0,
       totalAmount: orderData.totalAmount,
-      whatsappNumber: orderData.whatsappNumber || '9014567531',
+      whatsappNumber: orderData.whatsappNumber || '6305616316',
       status: 'WhatsApp Checkout Initiated',
       createdAt: new Date().toISOString()
     };

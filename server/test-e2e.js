@@ -46,7 +46,7 @@ async function runTests() {
       method: 'GET'
     });
     assert(health.status === 200 && health.data?.status === 'online', 'Health endpoint status is online');
-    assert(health.data?.businessWhatsApp === '9014567531', 'WhatsApp business number is configured as 9014567531');
+    assert(health.data?.businessWhatsApp === '6305616316', 'WhatsApp business number is configured as 6305616316');
 
     // 2. Product Catalog Check
     const prodRes = await makeRequest({
