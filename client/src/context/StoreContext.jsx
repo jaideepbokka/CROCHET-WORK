@@ -43,13 +43,25 @@ export function StoreProvider({ children }) {
     const deletedIds = getDeletedIds();
     const customProds = getCustomProducts();
 
+    // Helper to find override for a product by ID or by name
+    const findOverride = (prod) => {
+      if (!prod) return null;
+      if (overrides[prod.id]) return overrides[prod.id];
+      const matchKey = Object.keys(overrides).find((k) => {
+        const item = overrides[k];
+        return item && prod.name && item.name && item.name.trim().toLowerCase() === prod.name.trim().toLowerCase();
+      });
+      return matchKey ? overrides[matchKey] : null;
+    };
+
     // 1. Remove deleted products
     let merged = backendProducts.filter((p) => !deletedIds.includes(p.id));
 
     // 2. Apply admin edits (e.g. updated prices, titles, etc.)
     merged = merged.map((p) => {
-      if (overrides[p.id]) {
-        return { ...p, ...overrides[p.id] };
+      const ov = findOverride(p);
+      if (ov) {
+        return { ...p, ...ov };
       }
       return p;
     });
@@ -57,12 +69,13 @@ export function StoreProvider({ children }) {
     // 3. Include any newly created products (merging duplicates by id or name)
     for (const cp of customProds) {
       if (!deletedIds.includes(cp.id)) {
-        const fullProd = overrides[cp.id] ? { ...cp, ...overrides[cp.id] } : cp;
+        const ov = findOverride(cp);
+        const fullProd = ov ? { ...cp, ...ov } : cp;
         const existingIdx = merged.findIndex((p) => p.id === cp.id || (p.name && cp.name && p.name.trim().toLowerCase() === cp.name.trim().toLowerCase()));
         if (existingIdx >= 0) {
           merged[existingIdx] = {
-            ...cp,
             ...merged[existingIdx],
+            ...cp,
             ...fullProd
           };
         } else {
@@ -144,11 +157,13 @@ export function StoreProvider({ children }) {
 
       // Also update in custom products if this was a custom product
       const customProds = getCustomProducts();
-      const cpIdx = customProds.findIndex(p => p.id === updatedProduct.id || (p.name && updatedProduct.name && p.name.trim().toLowerCase() === updatedProduct.name.trim().toLowerCase()));
-      if (cpIdx >= 0) {
-        customProds[cpIdx] = { ...customProds[cpIdx], ...updatedProduct };
-        localStorage.setItem('stitch_custom_products', JSON.stringify(customProds));
-      }
+      const updatedCustomProds = customProds.map((p) => {
+        if (p.id === updatedProduct.id || (p.name && updatedProduct.name && p.name.trim().toLowerCase() === updatedProduct.name.trim().toLowerCase())) {
+          return { ...p, ...updatedProduct };
+        }
+        return p;
+      });
+      localStorage.setItem('stitch_custom_products', JSON.stringify(updatedCustomProds));
     } catch {}
 
     setProducts((prev) => {

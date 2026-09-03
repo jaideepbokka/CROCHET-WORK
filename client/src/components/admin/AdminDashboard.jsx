@@ -344,13 +344,15 @@ export default function AdminDashboard({ isOpen, onClose }) {
     if (rawVal === undefined || rawVal === '' || isNaN(rawVal) || Number(rawVal) <= 0) return;
     const newPrice = Number(rawVal);
 
+    // Clear editing buffer immediately
+    setQuickPrices(prev => ({ ...prev, [prodId]: undefined }));
+
     // Optimistically update immediately in state and local storage
-    const targetProd = products.find(p => p.id === prodId);
-    if (targetProd) {
-      updateProductLocal({ ...targetProd, price: newPrice });
-    } else {
-      updateProductLocal({ id: prodId, price: newPrice });
-    }
+    const targetProd = products.find(p => p.id === prodId || (p.name && p.name === prodId));
+    const updatedProd = targetProd ? { ...targetProd, price: newPrice } : { id: prodId, price: newPrice };
+    
+    updateProductLocal(updatedProd);
+    showToast(`Price updated to ₹${newPrice}!`, 'success');
 
     try {
       const activeToken = token || localStorage.getItem('stitch_token');
@@ -374,12 +376,9 @@ export default function AdminDashboard({ isOpen, onClose }) {
           updateProductLocal(data.product);
         }
       }
-      showToast(`Price updated to ₹${newPrice}!`, 'success');
-      setQuickPrices(prev => ({ ...prev, [prodId]: undefined }));
       await fetchProducts();
     } catch {
-      showToast(`Price updated to ₹${newPrice} locally!`, 'success');
-      setQuickPrices(prev => ({ ...prev, [prodId]: undefined }));
+      // Local update is already saved to localStorage
     }
   };
 
@@ -763,42 +762,58 @@ export default function AdminDashboard({ isOpen, onClose }) {
 
                             {/* Current Price */}
                             <td className="py-3.5 px-4">
-                              <span className="text-sm font-extrabold text-[#1D4548]">₹{prod.price}</span>
+                              <span className="text-sm font-black text-[#1D4548]">₹{prod.price}</span>
                             </td>
 
                             {/* Inline Quick Price Editor */}
                             <td className="py-3.5 px-4">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-gray-400 font-bold">₹</span>
-                                <input
-                                  type="number"
-                                  placeholder={prod.price.toString()}
-                                  value={quickPrices[prod.id] ?? ''}
-                                  onChange={(e) => setQuickPrices({ ...quickPrices, [prod.id]: e.target.value })}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      handleQuickPriceUpdate(prod.id);
-                                    }
-                                  }}
-                                  className={`w-20 px-2 py-1 text-xs font-bold rounded-lg border transition ${
-                                    quickPrices[prod.id] !== undefined && quickPrices[prod.id] !== '' && Number(quickPrices[prod.id]) !== Number(prod.price)
-                                      ? 'border-[#8A68E8] bg-purple-50 text-[#5F32C4] shadow-xs ring-2 ring-purple-100'
-                                      : 'border-gray-200 bg-[#FAF8F5]'
-                                  } focus:outline-none focus:border-[#8A68E8]`}
-                                />
-                                {quickPrices[prod.id] !== undefined && quickPrices[prod.id] !== '' && Number(quickPrices[prod.id]) !== Number(prod.price) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuickPriceUpdate(prod.id)}
-                                    className="px-2 py-1 rounded-lg bg-[#25D366] text-white hover:bg-[#1ebd5d] transition shadow-xs cursor-pointer flex items-center gap-1 text-[11px] font-bold animate-pulse"
-                                    title="Save price change (or press Enter)"
-                                  >
-                                    <Save className="w-3.5 h-3.5" />
-                                    <span>Save</span>
-                                  </button>
-                                )}
-                              </div>
+                              {(() => {
+                                const currentVal = quickPrices[prod.id] !== undefined ? quickPrices[prod.id] : prod.price;
+                                const isModified = quickPrices[prod.id] !== undefined && quickPrices[prod.id] !== '' && Number(quickPrices[prod.id]) !== Number(prod.price);
+                                return (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-gray-400 font-extrabold text-xs">₹</span>
+                                    <input
+                                      type="number"
+                                      value={currentVal}
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) => setQuickPrices({ ...quickPrices, [prod.id]: e.target.value })}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleQuickPriceUpdate(prod.id);
+                                        }
+                                      }}
+                                      onBlur={() => {
+                                        if (isModified) {
+                                          handleQuickPriceUpdate(prod.id);
+                                        }
+                                      }}
+                                      className={`w-20 px-2.5 py-1 text-xs font-black rounded-xl border transition cursor-text ${
+                                        isModified
+                                          ? 'border-[#25D366] bg-emerald-50 text-emerald-900 shadow-xs ring-2 ring-emerald-200'
+                                          : 'border-[#EDE4D6] bg-white hover:border-[#8A68E8] text-gray-800'
+                                      } focus:outline-none focus:border-[#8A68E8] focus:ring-2 focus:ring-[#8A68E8]/20`}
+                                      title="Type new price and press Enter, click Save, or click away"
+                                    />
+                                    {isModified && (
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          // Prevent input blur before click fires
+                                          e.preventDefault();
+                                          handleQuickPriceUpdate(prod.id);
+                                        }}
+                                        className="px-2.5 py-1 rounded-xl bg-[#25D366] text-white hover:bg-[#1ebd5d] transition shadow-md cursor-pointer flex items-center gap-1 text-[11px] font-black shrink-0 animate-pulse"
+                                        title="Click to save price change (or press Enter)"
+                                      >
+                                        <Check className="w-3.5 h-3.5" />
+                                        <span>Save ₹{quickPrices[prod.id]}</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </td>
 
                             {/* Stock Status */}

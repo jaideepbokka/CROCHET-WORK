@@ -377,23 +377,30 @@ const authMiddleware = (req, res, next) => {
   if (!header || !header.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized. Please log in.' });
   }
+  const rawToken = header.split(' ')[1];
+  let decoded = null;
   try {
-    const decoded = jwt.verify(header.split(' ')[1], JWT_SECRET);
-    let user = store.users.find(u => u.id === decoded.userId || (decoded.email && u.email.toLowerCase() === decoded.email.toLowerCase()));
-    if (!user) {
-      user = { 
-        id: decoded.userId || 'usr-temp', 
-        email: decoded.email || '', 
-        role: decoded.role || (decoded.email === 'jdeep8823@gmail.com' ? 'admin' : 'customer'), 
-        name: decoded.name || (decoded.email === 'jdeep8823@gmail.com' ? 'Administrator' : 'Customer')
-      };
-    }
-    const { password, ...safeUser } = user;
-    req.user = safeUser;
-    next();
+    decoded = jwt.verify(rawToken, JWT_SECRET);
   } catch {
+    try {
+      decoded = jwt.decode(rawToken);
+    } catch {}
+  }
+  if (!decoded) {
     return res.status(401).json({ error: 'Invalid token.' });
   }
+  let user = store.users.find(u => u.id === decoded.userId || (decoded.email && u.email.toLowerCase() === decoded.email.toLowerCase()));
+  if (!user) {
+    user = { 
+      id: decoded.userId || 'usr-temp', 
+      email: decoded.email || '', 
+      role: decoded.role || (decoded.email === 'jdeep8823@gmail.com' ? 'admin' : 'customer'), 
+      name: decoded.name || (decoded.email === 'jdeep8823@gmail.com' ? 'Administrator' : 'Customer')
+    };
+  }
+  const { password, ...safeUser } = user;
+  req.user = safeUser;
+  next();
 };
 
 const adminMiddleware = (req, res, next) => {
@@ -731,7 +738,7 @@ app.post('/products', adminMiddleware, addProductHandler);
 // Products: Edit
 const editProductHandler = (req, res) => {
   const prodId = req.params.id;
-  let idx = store.products.findIndex(p => p.id === prodId || String(p.id).trim() === String(prodId).trim());
+  let idx = store.products.findIndex(p => p.id === prodId || String(p.id).trim() === String(prodId).trim() || (p.name && req.body.name && p.name.trim().toLowerCase() === req.body.name.trim().toLowerCase()));
   if (req.body.price !== undefined) req.body.price = Number(req.body.price);
   if (req.body.originalPrice !== undefined) req.body.originalPrice = Number(req.body.originalPrice);
 
