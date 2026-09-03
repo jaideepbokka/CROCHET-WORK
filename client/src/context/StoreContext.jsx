@@ -175,6 +175,59 @@ export function StoreProvider({ children }) {
     });
   };
 
+  // Dedicated, Bulletproof Price Updater for Admin Dashboard
+  const updateProductPrice = async (productId, newPrice) => {
+    const numericPrice = Number(newPrice);
+    if (!productId || isNaN(numericPrice) || numericPrice <= 0) return;
+
+    // 1. Immediately update in React state
+    setProducts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id === productId || (p.name && productId && p.name.trim().toLowerCase() === String(productId).trim().toLowerCase())) {
+          return { ...p, price: numericPrice };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    // 2. Persist to localStorage overrides
+    try {
+      const overrides = getStoredOverrides();
+      const currentOv = overrides[productId] || {};
+      overrides[productId] = { ...currentOv, id: productId, price: numericPrice };
+      localStorage.setItem('stitch_admin_products_override', JSON.stringify(overrides));
+
+      // 3. Persist to custom products if applicable
+      const customProds = getCustomProducts();
+      const updatedCustom = customProds.map((p) => {
+        if (p.id === productId || (p.name && productId && p.name.trim().toLowerCase() === String(productId).trim().toLowerCase())) {
+          return { ...p, price: numericPrice };
+        }
+        return p;
+      });
+      localStorage.setItem('stitch_custom_products', JSON.stringify(updatedCustom));
+    } catch {}
+
+    // 4. Synchronize with backend API
+    try {
+      const activeToken = token || localStorage.getItem('stitch_token');
+      await fetch(`/api/products/${encodeURIComponent(productId)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {})
+        },
+        body: JSON.stringify({ price: numericPrice })
+      });
+    } catch (err) {
+      console.warn('Backend price sync note:', err);
+    }
+  };
+
   // Optimistic & Persistent Add Product Helper
   const addProductLocal = (newProduct) => {
     if (!newProduct || !newProduct.id) return;
@@ -488,6 +541,7 @@ export function StoreProvider({ children }) {
         cartSubtotal,
         fetchProducts,
         updateProductLocal,
+        updateProductPrice,
         addProductLocal,
         deleteProductLocal
       }}

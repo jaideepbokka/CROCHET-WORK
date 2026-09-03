@@ -4,7 +4,7 @@
       "id": "usr-admin-1",
       "name": "Deepu (Administrator)",
       "email": "jdeep8823@gmail.com",
-      "phone": "6305616316",
+      "phone": "9014567531",
       "password": "$2a$10$jSUXqD7mr/J42yRw2iRqKuXVz5wvFMq2Fm3eknrKqgKmwNmF1pjLW",
       "role": "admin",
       "twoFactorEnabled": true,
@@ -13,7 +13,7 @@
         {
           "id": "addr-admin-1",
           "city": "Hyderabad",
-          "phone": "6305616316",
+          "phone": "9014567531",
           "state": "Telangana",
           "street": "Stitch & Hook Artisan Studio, Main Road",
           "pincode": "500001",
@@ -77,7 +77,7 @@
       ],
       "careInstructions": "Gentle hand wash cold.",
       "createdAt": "2026-09-03T10:23:21.000Z",
-      "updatedAt": "2026-09-03T11:09:24.000Z"
+      "updatedAt": "2026-09-03T11:19:19.000Z"
     },
     {
       "id": "prod-lb-1",
@@ -104,7 +104,7 @@
       ],
       "careInstructions": "Hand wash cold",
       "createdAt": "2026-08-31T07:49:08.000Z",
-      "updatedAt": "2026-09-03T11:09:24.000Z"
+      "updatedAt": "2026-09-03T11:19:19.000Z"
     },
     {
       "id": "prod-lb-2",
@@ -131,7 +131,7 @@
       ],
       "careInstructions": "Spot clean with mild detergent or hand wash cold.",
       "createdAt": "2026-08-31T07:51:35.000Z",
-      "updatedAt": "2026-09-03T11:09:24.000Z"
+      "updatedAt": "2026-09-03T11:19:19.000Z"
     },
     {
       "id": "prod-lb-3",
@@ -158,7 +158,7 @@
       ],
       "careInstructions": "Hand wash gently in lukewarm water.",
       "createdAt": "2026-08-31T07:51:35.000Z",
-      "updatedAt": "2026-09-03T11:09:24.000Z"
+      "updatedAt": "2026-09-03T11:19:19.000Z"
     },
     {
       "id": "prod-bc-1",
@@ -185,7 +185,7 @@
       ],
       "careInstructions": "Spot clean with damp cloth.",
       "createdAt": "2026-08-31T07:51:35.000Z",
-      "updatedAt": "2026-09-03T11:09:24.000Z"
+      "updatedAt": "2026-09-03T11:19:19.000Z"
     },
     {
       "id": "prod-bc-2",
@@ -212,7 +212,7 @@
       ],
       "careInstructions": "Hand wash gently and dry flat in shade.",
       "createdAt": "2026-08-31T07:51:35.000Z",
-      "updatedAt": "2026-09-03T11:09:24.000Z"
+      "updatedAt": "2026-09-03T11:19:19.000Z"
     },
     {
       "id": "prod-kc-1",
@@ -238,7 +238,7 @@
       ],
       "careInstructions": "Spot clean only with soft damp cloth.",
       "createdAt": "2026-08-31T07:51:35.000Z",
-      "updatedAt": "2026-09-03T11:09:24.000Z"
+      "updatedAt": "2026-09-03T11:19:19.000Z"
     },
     {
       "id": "prod-kc-2",
@@ -263,7 +263,7 @@
       ],
       "careInstructions": "Spot clean only.",
       "createdAt": "2026-08-31T07:51:35.000Z",
-      "updatedAt": "2026-09-03T11:09:24.000Z"
+      "updatedAt": "2026-09-03T11:19:19.000Z"
     },
     {
       "id": "prod-kc-3",
@@ -290,7 +290,7 @@
       ],
       "careInstructions": "Spot clean with lukewarm soapy water.",
       "createdAt": "2026-08-31T07:51:35.000Z",
-      "updatedAt": "2026-09-03T11:09:24.000Z"
+      "updatedAt": "2026-09-03T11:19:19.000Z"
     },
     {
       "id": "prod-kc-4",
@@ -317,7 +317,7 @@
       ],
       "careInstructions": "Wipe clean gently with dry or slightly damp cloth.",
       "createdAt": "2026-08-31T07:51:35.000Z",
-      "updatedAt": "2026-09-03T11:09:24.000Z"
+      "updatedAt": "2026-09-03T11:19:19.000Z"
     }
   ],
   "orders": [],

@@ -35,7 +35,7 @@ import { FORMATTED_PHONE, BUSINESS_PHONE } from '../../utils/whatsapp';
 
 export default function AdminDashboard({ isOpen, onClose }) {
   const { user, token } = useAuth();
-  const { products, fetchProducts, showToast, updateProductLocal, addProductLocal, deleteProductLocal } = useStore();
+  const { products, fetchProducts, showToast, updateProductLocal, updateProductPrice, addProductLocal, deleteProductLocal } = useStore();
 
   const [activeTab, setActiveTab] = useState('orders'); // 'orders', 'products', 'add-product', 'analytics'
   const [orders, setOrders] = useState([]);
@@ -275,6 +275,7 @@ export default function AdminDashboard({ isOpen, onClose }) {
     // 1. Instantly register locally in state and browser storage
     if (editingProductId) {
       updateProductLocal(payload);
+      updateProductPrice(editingProductId, Number(pPrice));
     } else {
       addProductLocal(payload);
     }
@@ -345,41 +346,20 @@ export default function AdminDashboard({ isOpen, onClose }) {
     const newPrice = Number(rawVal);
 
     // Clear editing buffer immediately
-    setQuickPrices(prev => ({ ...prev, [prodId]: undefined }));
+    setQuickPrices((prev) => {
+      const next = { ...prev };
+      delete next[prodId];
+      return next;
+    });
 
-    // Optimistically update immediately in state and local storage
-    const targetProd = products.find(p => p.id === prodId || (p.name && p.name === prodId));
-    const updatedProd = targetProd ? { ...targetProd, price: newPrice } : { id: prodId, price: newPrice };
-    
-    updateProductLocal(updatedProd);
-    showToast(`Price updated to ₹${newPrice}!`, 'success');
+    // Immediately update price across state, overrides, custom products, and backend
+    await updateProductPrice(prodId, newPrice);
+    showToast(`Price updated to ₹${newPrice}! 🎉`, 'success');
 
+    // Refresh products to sync everything
     try {
-      const activeToken = token || localStorage.getItem('stitch_token');
-      const res = await fetch(`/api/products/${prodId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${activeToken}`
-        },
-        body: JSON.stringify({
-          price: newPrice,
-          name: targetProd?.name,
-          category: targetProd?.category,
-          image: targetProd?.image,
-          images: targetProd?.images
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.product) {
-          updateProductLocal(data.product);
-        }
-      }
       await fetchProducts();
-    } catch {
-      // Local update is already saved to localStorage
-    }
+    } catch {}
   };
 
   const handleOrderStatusUpdate = async (orderId, newStatus) => {
@@ -701,13 +681,28 @@ export default function AdminDashboard({ isOpen, onClose }) {
                       Instantly update prices in ₹ INR, add new crochet creations, or change stock availability.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={openAddProductModal}
-                    className="btn-primary-artisan text-xs py-2.5 px-5 cursor-pointer shadow-md"
-                  >
-                    <Plus className="w-4 h-4" /> Add New Item
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        showToast('Syncing store catalog...', 'info');
+                        await fetchProducts();
+                        showToast('Catalog refreshed and synchronized! ✨', 'success');
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl border border-[#EDE4D6] bg-white hover:bg-gray-50 text-xs font-extrabold text-gray-700 flex items-center gap-1.5 cursor-pointer shadow-2xs transition"
+                      title="Force refresh and sync store catalog"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-[#2B6064]" />
+                      <span>Sync Store</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openAddProductModal}
+                      className="btn-primary-artisan text-xs py-2.5 px-5 cursor-pointer shadow-md"
+                    >
+                      <Plus className="w-4 h-4" /> Add New Item
+                    </button>
+                  </div>
                 </div>
 
                 {/* Products Table */}
@@ -768,49 +763,55 @@ export default function AdminDashboard({ isOpen, onClose }) {
                             {/* Inline Quick Price Editor */}
                             <td className="py-3.5 px-4">
                               {(() => {
-                                const currentVal = quickPrices[prod.id] !== undefined ? quickPrices[prod.id] : prod.price;
-                                const isModified = quickPrices[prod.id] !== undefined && quickPrices[prod.id] !== '' && Number(quickPrices[prod.id]) !== Number(prod.price);
+                                const isEditing = quickPrices[prod.id] !== undefined && quickPrices[prod.id] !== '';
+                                const currentVal = isEditing ? quickPrices[prod.id] : prod.price;
+                                const isDifferent = isEditing && Number(quickPrices[prod.id]) !== Number(prod.price);
+
                                 return (
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-gray-400 font-extrabold text-xs">₹</span>
-                                    <input
-                                      type="number"
-                                      value={currentVal}
-                                      onFocus={(e) => e.target.select()}
-                                      onChange={(e) => setQuickPrices({ ...quickPrices, [prod.id]: e.target.value })}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          e.preventDefault();
-                                          handleQuickPriceUpdate(prod.id);
-                                        }
-                                      }}
-                                      onBlur={() => {
-                                        if (isModified) {
-                                          handleQuickPriceUpdate(prod.id);
-                                        }
-                                      }}
-                                      className={`w-20 px-2.5 py-1 text-xs font-black rounded-xl border transition cursor-text ${
-                                        isModified
-                                          ? 'border-[#25D366] bg-emerald-50 text-emerald-900 shadow-xs ring-2 ring-emerald-200'
-                                          : 'border-[#EDE4D6] bg-white hover:border-[#8A68E8] text-gray-800'
-                                      } focus:outline-none focus:border-[#8A68E8] focus:ring-2 focus:ring-[#8A68E8]/20`}
-                                      title="Type new price and press Enter, click Save, or click away"
-                                    />
-                                    {isModified && (
-                                      <button
-                                        type="button"
-                                        onMouseDown={(e) => {
-                                          // Prevent input blur before click fires
-                                          e.preventDefault();
-                                          handleQuickPriceUpdate(prod.id);
+                                    <div className="relative flex items-center">
+                                      <span className="absolute left-2.5 text-gray-400 font-extrabold text-xs">₹</span>
+                                      <input
+                                        type="number"
+                                        value={currentVal}
+                                        onFocus={(e) => e.target.select()}
+                                        onChange={(e) => setQuickPrices({ ...quickPrices, [prod.id]: e.target.value })}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleQuickPriceUpdate(prod.id);
+                                          }
                                         }}
-                                        className="px-2.5 py-1 rounded-xl bg-[#25D366] text-white hover:bg-[#1ebd5d] transition shadow-md cursor-pointer flex items-center gap-1 text-[11px] font-black shrink-0 animate-pulse"
-                                        title="Click to save price change (or press Enter)"
-                                      >
-                                        <Check className="w-3.5 h-3.5" />
-                                        <span>Save ₹{quickPrices[prod.id]}</span>
-                                      </button>
-                                    )}
+                                        onBlur={() => {
+                                          if (isDifferent) {
+                                            handleQuickPriceUpdate(prod.id);
+                                          }
+                                        }}
+                                        className={`w-24 pl-6 pr-2 py-1 text-xs font-black rounded-xl border transition cursor-text ${
+                                          isDifferent
+                                            ? 'border-[#25D366] bg-emerald-50 text-emerald-950 ring-2 ring-emerald-200'
+                                            : 'border-[#EDE4D6] bg-white text-gray-800 hover:border-[#8A68E8]'
+                                        } focus:outline-none focus:border-[#8A68E8] focus:ring-2 focus:ring-[#8A68E8]/20`}
+                                        title="Type new price and press Enter, click Save, or click away"
+                                      />
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        handleQuickPriceUpdate(prod.id);
+                                      }}
+                                      className={`px-2.5 py-1 rounded-xl text-[11px] font-black flex items-center gap-1 transition cursor-pointer shrink-0 shadow-xs ${
+                                        isDifferent
+                                          ? 'bg-[#25D366] hover:bg-[#1ebd5d] text-white shadow-md scale-105 animate-pulse'
+                                          : 'bg-gray-100 text-gray-500 hover:bg-[#EFE9FA] hover:text-[#5F32C4]'
+                                      }`}
+                                      title={isDifferent ? `Click to save price change (or press Enter)` : 'Save Price'}
+                                    >
+                                      {isDifferent ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                                      <span>{isDifferent ? `Save ₹${quickPrices[prod.id]}` : 'Save'}</span>
+                                    </button>
                                   </div>
                                 );
                               })()}
