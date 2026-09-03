@@ -24,6 +24,24 @@ app.use(express.urlencoded({ extended: true }));
 // Initial seed products
 const initialProducts = [
   {
+    id: 'prod-qwsedrftghujkl',
+    name: 'qwsedrftghujkl',
+    category: 'Laptop Bags',
+    categorySlug: 'laptop-bags',
+    price: 250,
+    originalPrice: 300,
+    rating: 5.0,
+    reviewsCount: 1,
+    image: '/images/laptop_bag_lavender.jpg',
+    description: 'Handcrafted artisan crochet creation.',
+    dimensions: 'Standard handcrafted dimensions',
+    yarnMaterial: '100% Premium Milk Cotton Yarn',
+    inStock: true,
+    badge: 'New Arrival',
+    colorOptions: ['Original'],
+    careInstructions: 'Gentle hand wash cold.'
+  },
+  {
     id: 'prod-lb-1',
     name: 'Lavender & Cream Waffle Laptop Sleeve',
     category: 'Laptop Bags',

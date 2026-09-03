@@ -4,7 +4,7 @@
       "id": "usr-admin-1",
       "name": "Deepu (Administrator)",
       "email": "jdeep8823@gmail.com",
-      "phone": "9014567531",
+      "phone": "6305616316",
       "password": "$2a$10$jSUXqD7mr/J42yRw2iRqKuXVz5wvFMq2Fm3eknrKqgKmwNmF1pjLW",
       "role": "admin",
       "twoFactorEnabled": true,
@@ -13,7 +13,7 @@
         {
           "id": "addr-admin-1",
           "city": "Hyderabad",
-          "phone": "9014567531",
+          "phone": "6305616316",
           "state": "Telangana",
           "street": "Stitch & Hook Artisan Studio, Main Road",
           "pincode": "500001",
@@ -27,6 +27,31 @@
     }
   ],
   "products": [
+    {
+      "id": "prod-qwsedrftghujkl",
+      "name": "qwsedrftghujkl",
+      "category": "Laptop Bags",
+      "categorySlug": "laptop-bags",
+      "price": 250,
+      "originalPrice": 300,
+      "rating": 5,
+      "reviewsCount": 1,
+      "image": "/images/laptop_bag_lavender.jpg",
+      "images": [
+        "/images/laptop_bag_lavender.jpg"
+      ],
+      "description": "Handmade artisan crochet creation.",
+      "dimensions": "Handcrafted size",
+      "yarnMaterial": "100% Premium Milk Cotton Yarn",
+      "inStock": true,
+      "badge": "New Arrival",
+      "colorOptions": [
+        "Original"
+      ],
+      "careInstructions": "Gentle hand wash cold.",
+      "createdAt": "2026-09-03T16:00:00.000Z",
+      "updatedAt": "2026-09-03T16:55:00.000Z"
+    },
     {
       "id": "prod-1788450801469",
       "name": "Multi-Image Artisan Tote",
