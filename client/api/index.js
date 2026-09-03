@@ -234,7 +234,10 @@ loadStore();
 // Transporter with direct Gmail service
 const getTransporter = () => {
   const user = (process.env.SMTP_USER || 'jdeep8823@gmail.com').trim();
-  const rawPass = process.env.SMTP_PASS || 'reuq wyfj usvb riys';
+  let rawPass = process.env.SMTP_PASS || 'reuq wyfj usvb riys';
+  if (!rawPass || rawPass.replace(/\s+/g, '') === 'ehzmxbjzdmlyspct') {
+    rawPass = 'reuq wyfj usvb riys';
+  }
   const pass = rawPass.trim().replace(/\s+/g, '');
   try {
     return nodemailer.createTransport({
@@ -408,10 +411,12 @@ const adminMiddleware = (req, res, next) => {
 
 // Health
 const healthHandler = (req, res) => {
+  const envPhone = process.env.WHATSAPP_BUSINESS_NUMBER;
+  const businessWhatsApp = (!envPhone || envPhone === '9014567531') ? '6305616316' : envPhone;
   res.status(200).json({
     status: 'online',
     storeName: 'Stitch & Hook',
-    businessWhatsApp: process.env.WHATSAPP_BUSINESS_NUMBER || '6305616316',
+    businessWhatsApp,
     timestamp: new Date().toISOString()
   });
 };
