@@ -7,6 +7,10 @@ import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'stitch_hook_super_secret_jwt_artisan_2026_key';
