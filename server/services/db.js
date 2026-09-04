@@ -17,6 +17,7 @@ import {
   initMySQL, 
   isMySQLConnected, 
   getMySQLProducts, 
+  getMySQLDeletedIds,
   upsertMySQLProduct, 
   seedMySQLProducts, 
   deleteMySQLProduct, 
@@ -206,9 +207,11 @@ class Store {
   constructor() {
     this.data = {
       users: [],
-      products: [...initialProducts],
+      products: [],
       orders: [],
-      otps: {}
+      otps: {},
+      deletedProductIds: [],
+      isSeeded: false
     };
     this.seedUsers();
     this.load();
@@ -219,27 +222,45 @@ class Store {
     try {
       const mysqlOk = await initMySQL();
       if (mysqlOk && isMySQLConnected()) {
-        // 1. Products Sync (Merge & Ensure all items exist)
+        // Sync deleted product IDs with MySQL
+        const mysqlDeletedIds = await getMySQLDeletedIds();
+        const deletedSet = new Set([
+          ...(this.data.deletedProductIds || []).map(id => String(id).trim()),
+          ...(mysqlDeletedIds || []).map(id => String(id).trim())
+        ]);
+        this.data.deletedProductIds = Array.from(deletedSet);
+
+        // 1. Products Sync (Merge & Ensure deleted items stay deleted)
         const mysqlProds = await getMySQLProducts();
         const productMap = new Map();
         
-        // Base products from memory / JSON
+        // Base products from memory / JSON (filtering out deleted)
         for (const p of (this.data.products || [])) {
-          if (p && p.id) productMap.set(p.id, p);
-        }
-        // Fallback initial seeds if anything is missing
-        for (const p of initialProducts) {
-          if (p && p.id && !productMap.has(p.id)) {
-            productMap.set(p.id, p);
-          }
-        }
-        // Overwrite / incorporate items from MySQL
-        if (mysqlProds && mysqlProds.length > 0) {
-          for (const p of mysqlProds) {
-            if (p && p.id) productMap.set(p.id, p);
+          if (p && p.id && !deletedSet.has(String(p.id).trim())) {
+            productMap.set(String(p.id).trim(), p);
           }
         }
 
+        // Only seed initial products ONCE if the store has NEVER been seeded
+        // AND products table/store is completely empty!
+        if (!this.data.isSeeded && productMap.size === 0 && (!mysqlProds || mysqlProds.length === 0)) {
+          for (const p of initialProducts) {
+            if (p && p.id && !deletedSet.has(String(p.id).trim())) {
+              productMap.set(String(p.id).trim(), p);
+            }
+          }
+        }
+
+        // Overwrite / incorporate items from MySQL (excluding deleted items)
+        if (mysqlProds && mysqlProds.length > 0) {
+          for (const p of mysqlProds) {
+            if (p && p.id && !deletedSet.has(String(p.id).trim())) {
+              productMap.set(String(p.id).trim(), p);
+            }
+          }
+        }
+
+        this.data.isSeeded = true;
         this.data.products = Array.from(productMap.values());
         this.save();
 
@@ -283,6 +304,14 @@ class Store {
             await upsertMySQLOrder(o);
           }
         }
+      } else {
+        // Fallback when MySQL is not available: seed only once if products are empty and not seeded
+        if (!this.data.isSeeded && (!this.data.products || this.data.products.length === 0)) {
+          const deletedSet = new Set((this.data.deletedProductIds || []).map(id => String(id).trim()));
+          this.data.products = initialProducts.filter(p => !deletedSet.has(String(p.id).trim()));
+          this.data.isSeeded = true;
+          this.save();
+        }
       }
     } catch (err) {
       console.warn('Database initialization sync notice:', err.message);
@@ -295,9 +324,15 @@ class Store {
         const raw = fs.readFileSync(DB_FILE, 'utf8');
         const parsed = JSON.parse(raw);
         if (parsed.users && parsed.users.length > 0) this.data.users = parsed.users;
-        if (parsed.products && parsed.products.length > 0) this.data.products = parsed.products;
+        if (parsed.products && Array.isArray(parsed.products)) this.data.products = parsed.products;
         if (parsed.orders) this.data.orders = parsed.orders;
         if (parsed.otps) this.data.otps = parsed.otps;
+        if (parsed.deletedProductIds && Array.isArray(parsed.deletedProductIds)) {
+          this.data.deletedProductIds = parsed.deletedProductIds;
+        }
+        if (parsed.isSeeded !== undefined) {
+          this.data.isSeeded = Boolean(parsed.isSeeded);
+        }
       }
     } catch {
       // Graceful in-memory fallback
@@ -426,8 +461,15 @@ class Store {
     const slug = productData.category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const primaryImage = productData.image || (Array.isArray(productData.images) && productData.images[0]) || '/images/laptop_bag_lavender.jpg';
     const imagesList = Array.isArray(productData.images) && productData.images.length > 0 ? productData.images : [primaryImage];
+    const cleanId = String(productData.id || ('prod-' + Date.now())).trim();
+    
+    // Remove from deletedProductIds if it was previously marked as deleted
+    if (this.data.deletedProductIds) {
+      this.data.deletedProductIds = this.data.deletedProductIds.filter(dId => String(dId).trim() !== cleanId);
+    }
+
     const newProduct = {
-      id: productData.id || ('prod-' + Date.now()),
+      id: cleanId,
       name: productData.name,
       category: productData.category,
       categorySlug: productData.categorySlug || slug,
@@ -444,22 +486,34 @@ class Store {
       colorOptions: Array.isArray(productData.colorOptions) ? productData.colorOptions : (productData.colorOptions ? productData.colorOptions.split(',').map(s => s.trim()) : ['Original']),
       careInstructions: productData.careInstructions || 'Gentle hand wash cold.',
       inStock: productData.inStock !== false,
-      createdAt: new Date().toISOString()
+      createdAt: productData.createdAt || new Date().toISOString()
     };
     // If a product with this id already exists, update it instead of adding a duplicate
-    const existingIdx = this.data.products.findIndex(p => p.id === newProduct.id || String(p.id).trim() === String(newProduct.id).trim());
+    const existingIdx = this.data.products.findIndex(p => String(p.id).trim() === cleanId);
     if (existingIdx >= 0) {
       this.data.products[existingIdx] = { ...this.data.products[existingIdx], ...newProduct, updatedAt: new Date().toISOString() };
     } else {
       this.data.products.unshift(newProduct);
     }
     this.save();
-    try { await upsertMySQLProduct(newProduct); } catch {}
+    try { 
+      await upsertMySQLProduct(newProduct); 
+    } catch (err) {
+      console.error('upsertMySQLProduct error in addProduct:', err.message);
+    }
     return newProduct;
   }
 
   async updateProduct(id, updates) {
-    let idx = this.data.products.findIndex(p => p.id === id || String(p.id).trim() === String(id).trim());
+    if (!id) return null;
+    const cleanId = String(id).trim();
+    let idx = this.data.products.findIndex(p => String(p.id).trim() === cleanId);
+
+    // If it was in deletedProductIds, unmark it
+    if (this.data.deletedProductIds) {
+      this.data.deletedProductIds = this.data.deletedProductIds.filter(dId => String(dId).trim() !== cleanId);
+    }
+
     if (updates.price !== undefined) updates.price = Number(updates.price);
     if (updates.originalPrice !== undefined) updates.originalPrice = Number(updates.originalPrice);
     if (updates.category && !updates.categorySlug) {
@@ -472,7 +526,7 @@ class Store {
     // Self-healing: if product was saved on client but missing in memory, create it with updated price
     if (idx === -1) {
       const newProd = {
-        id,
+        id: cleanId,
         name: updates.name || 'Crochet Creation',
         category: updates.category || 'Laptop Bags',
         categorySlug: updates.categorySlug || 'laptop-bags',
@@ -493,22 +547,44 @@ class Store {
       };
       this.data.products.unshift(newProd);
       this.save();
-      try { await upsertMySQLProduct(newProd); } catch {}
+      try { 
+        await upsertMySQLProduct(newProd); 
+      } catch (err) {
+        console.error('upsertMySQLProduct error in updateProduct:', err.message);
+      }
       return newProd;
     }
 
     this.data.products[idx] = { ...this.data.products[idx], ...updates, updatedAt: new Date().toISOString() };
     this.save();
-    try { await upsertMySQLProduct(this.data.products[idx]); } catch {}
+    try { 
+      await upsertMySQLProduct(this.data.products[idx]); 
+    } catch (err) {
+      console.error('upsertMySQLProduct error in updateProduct:', err.message);
+    }
     return this.data.products[idx];
   }
 
   async deleteProduct(id) {
-    const idx = this.data.products.findIndex(p => p.id === id);
-    if (idx === -1) return false;
-    this.data.products.splice(idx, 1);
+    if (!id) return false;
+    const cleanId = String(id).trim();
+    const idx = this.data.products.findIndex(p => String(p.id).trim() === cleanId);
+    
+    if (!this.data.deletedProductIds) this.data.deletedProductIds = [];
+    if (!this.data.deletedProductIds.includes(cleanId)) {
+      this.data.deletedProductIds.push(cleanId);
+    }
+
+    if (idx !== -1) {
+      this.data.products.splice(idx, 1);
+    }
+    
     this.save();
-    try { await deleteMySQLProduct(id); } catch {}
+    try { 
+      await deleteMySQLProduct(cleanId); 
+    } catch (err) {
+      console.error('deleteMySQLProduct error in deleteProduct:', err.message);
+    }
     return true;
   }
 

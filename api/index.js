@@ -11,6 +11,7 @@ import os from 'os';
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'stitch_hook_super_secret_jwt_artisan_2026_key';
 const DB_FILE = path.join(os.tmpdir(), 'stitch_store.json');
+const BUNDLED_STORE_FILE = path.join(__dirname, 'store.json');
 
 // Middleware
 app.use(cors({
@@ -225,19 +226,36 @@ const store = {
   ],
   products: [...initialProducts],
   orders: [],
-  otps: {}
+  otps: {},
+  deletedProductIds: [],
+  isSeeded: true
 };
 
 const loadStore = () => {
   try {
+    let sourceFile = null;
     if (fs.existsSync(DB_FILE)) {
-      const raw = fs.readFileSync(DB_FILE, 'utf8');
+      sourceFile = DB_FILE;
+    } else if (fs.existsSync(BUNDLED_STORE_FILE)) {
+      sourceFile = BUNDLED_STORE_FILE;
+    }
+
+    if (sourceFile) {
+      const raw = fs.readFileSync(sourceFile, 'utf8');
       const parsed = JSON.parse(raw);
       if (parsed.users && parsed.users.length > 0) store.users = parsed.users;
-      if (parsed.products && parsed.products.length > 0) store.products = parsed.products;
+      if (parsed.products && Array.isArray(parsed.products)) store.products = parsed.products;
       if (parsed.orders) store.orders = parsed.orders;
       if (parsed.otps) store.otps = parsed.otps;
+      if (parsed.deletedProductIds && Array.isArray(parsed.deletedProductIds)) {
+        store.deletedProductIds = parsed.deletedProductIds;
+      }
+      if (parsed.isSeeded !== undefined) {
+        store.isSeeded = Boolean(parsed.isSeeded);
+      }
     }
+    const deletedSet = new Set((store.deletedProductIds || []).map(id => String(id).trim()));
+    store.products = store.products.filter(p => !deletedSet.has(String(p.id).trim()));
   } catch {}
 };
 
@@ -732,16 +750,19 @@ app.get('/products/categories', getCategoriesHandler);
 
 // Products: Add
 const addProductHandler = (req, res) => {
-  const prodId = req.body.id || ('prod-' + Date.now());
+  const prodId = String(req.body.id || ('prod-' + Date.now())).trim();
+  if (store.deletedProductIds) {
+    store.deletedProductIds = store.deletedProductIds.filter(dId => String(dId).trim() !== prodId);
+  }
   const newProd = {
     ...req.body,
     id: prodId,
     price: Number(req.body.price),
     categorySlug: (req.body.category || 'laptop-bags').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
     inStock: req.body.inStock !== false,
-    createdAt: new Date().toISOString()
+    createdAt: req.body.createdAt || new Date().toISOString()
   };
-  const existingIdx = store.products.findIndex(p => p.id === prodId || String(p.id).trim() === String(prodId).trim());
+  const existingIdx = store.products.findIndex(p => String(p.id).trim() === prodId);
   if (existingIdx >= 0) {
     store.products[existingIdx] = { ...store.products[existingIdx], ...newProd, updatedAt: new Date().toISOString() };
   } else {
@@ -755,8 +776,11 @@ app.post('/products', adminMiddleware, addProductHandler);
 
 // Products: Edit
 const editProductHandler = (req, res) => {
-  const prodId = req.params.id;
-  let idx = store.products.findIndex(p => p.id === prodId || String(p.id).trim() === String(prodId).trim() || (p.name && req.body.name && p.name.trim().toLowerCase() === req.body.name.trim().toLowerCase()));
+  const prodId = decodeURIComponent(req.params.id).trim();
+  if (store.deletedProductIds) {
+    store.deletedProductIds = store.deletedProductIds.filter(dId => String(dId).trim() !== prodId);
+  }
+  let idx = store.products.findIndex(p => String(p.id).trim() === prodId || (p.name && req.body.name && p.name.trim().toLowerCase() === req.body.name.trim().toLowerCase()));
   if (req.body.price !== undefined) req.body.price = Number(req.body.price);
   if (req.body.originalPrice !== undefined) req.body.originalPrice = Number(req.body.originalPrice);
 
@@ -789,11 +813,17 @@ app.put('/products/:id', adminMiddleware, editProductHandler);
 
 // Products: Delete
 const deleteProductHandler = (req, res) => {
-  const idx = store.products.findIndex(p => p.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Product not found.' });
-  store.products.splice(idx, 1);
+  const prodId = decodeURIComponent(req.params.id).trim();
+  if (!store.deletedProductIds) store.deletedProductIds = [];
+  if (!store.deletedProductIds.includes(prodId)) {
+    store.deletedProductIds.push(prodId);
+  }
+  const idx = store.products.findIndex(p => String(p.id).trim() === prodId);
+  if (idx !== -1) {
+    store.products.splice(idx, 1);
+  }
   saveStore();
-  res.json({ message: 'Product deleted.' });
+  res.json({ message: 'Product deleted from store catalog.' });
 };
 app.delete('/api/products/:id', adminMiddleware, deleteProductHandler);
 app.delete('/products/:id', adminMiddleware, deleteProductHandler);

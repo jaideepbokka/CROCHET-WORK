@@ -8,109 +8,19 @@ const StoreContext = createContext();
 export function StoreProvider({ children }) {
   const { user, token } = useAuth();
 
-  // Helper to read persistent admin overrides from localStorage
-  const getStoredOverrides = () => {
+  // Clean up legacy override keys from previous versions that caused sync issues
+  useEffect(() => {
     try {
-      const saved = localStorage.getItem('stitch_admin_products_override');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  };
-
-  const getDeletedIds = () => {
-    try {
-      const saved = localStorage.getItem('stitch_deleted_products');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const getCustomProducts = () => {
-    try {
-      const saved = localStorage.getItem('stitch_custom_products');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  // Merge server products with client persistent overrides
-  // Merge server products with client persistent overrides
-  const applyOverrides = (backendProducts) => {
-    if (!Array.isArray(backendProducts)) return [];
-    const overrides = getStoredOverrides();
-    const deletedIds = getDeletedIds();
-    const customProds = getCustomProducts();
-
-    // Helper to find override for a product by ID or by name
-    const findOverride = (prod) => {
-      if (!prod) return null;
-      if (overrides[prod.id]) return overrides[prod.id];
-      const matchKey = Object.keys(overrides).find((k) => {
-        const item = overrides[k];
-        return item && prod.name && item.name && item.name.trim().toLowerCase() === prod.name.trim().toLowerCase() && prod.name.trim().toLowerCase() !== 'crochet creation';
-      });
-      return matchKey ? overrides[matchKey] : null;
-    };
-
-    // 1. Remove deleted products
-    let merged = backendProducts.filter((p) => !deletedIds.includes(p.id));
-
-    // 2. Apply admin edits (e.g. updated prices, titles, etc.)
-    merged = merged.map((p) => {
-      const ov = findOverride(p);
-      if (ov) {
-        // If server product already has an updated image, preserve it if override image is just the default placeholder
-        const ovImageIsDefault = ov.image === '/images/laptop_bag_lavender.jpg';
-        const serverImageIsCustom = p.image && p.image !== '/images/laptop_bag_lavender.jpg';
-        const effectiveImage = (ovImageIsDefault && serverImageIsCustom) ? p.image : (ov.image || p.image);
-        const effectiveImages = (ov.images && ov.images.length > 0 && !(ov.images.length === 1 && ov.images[0] === '/images/laptop_bag_lavender.jpg' && serverImageIsCustom))
-          ? ov.images
-          : (p.images && p.images.length > 0 ? p.images : [effectiveImage]);
-
-        return { 
-          ...p, 
-          ...ov,
-          image: effectiveImage,
-          images: effectiveImages
-        };
-      }
-      return p;
-    });
-
-    // 3. Include any newly created products (merging duplicates by id or name)
-    for (const cp of customProds) {
-      if (!deletedIds.includes(cp.id)) {
-        const ov = findOverride(cp);
-        const fullProd = ov ? { ...cp, ...ov } : cp;
-        const existingIdx = merged.findIndex((p) => 
-          p.id === cp.id || 
-          (p.name && cp.name && p.name.trim().toLowerCase() === cp.name.trim().toLowerCase() && p.name.trim().toLowerCase() !== 'crochet creation')
-        );
-        if (existingIdx >= 0) {
-          merged[existingIdx] = {
-            ...merged[existingIdx],
-            ...cp,
-            ...fullProd
-          };
-        } else {
-          merged.unshift(fullProd);
-        }
-      }
-    }
-
-    return merged;
-  };
+      localStorage.removeItem('stitch_admin_products_override');
+      localStorage.removeItem('stitch_deleted_products');
+      localStorage.removeItem('stitch_custom_products');
+    } catch {}
+  }, []);
 
   const [products, setProducts] = useState(() => {
     try {
       const cached = localStorage.getItem('stitch_products_cache');
-      if (cached) {
-        return applyOverrides(JSON.parse(cached));
-      }
-      return [];
+      return cached ? JSON.parse(cached) : [];
     } catch {
       return [];
     }
@@ -121,7 +31,7 @@ export function StoreProvider({ children }) {
   // Filters & Search
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [maxPrice, setMaxPrice] = useState(250);
+  const [maxPrice, setMaxPrice] = useState(1000);
   const [sortBy, setSortBy] = useState('featured');
 
   // Drawers & Modals
@@ -162,29 +72,13 @@ export function StoreProvider({ children }) {
     }, 4000);
   };
 
-  // Optimistic & Persistent Product Update Helper
+  // Immediate UI Update Helper for product editing
   const updateProductLocal = (updatedProduct) => {
     if (!updatedProduct || !updatedProduct.id) return;
-    
-    // Save to persistent overrides in localStorage
-    try {
-      const overrides = getStoredOverrides();
-      overrides[updatedProduct.id] = { ...(overrides[updatedProduct.id] || {}), ...updatedProduct };
-      localStorage.setItem('stitch_admin_products_override', JSON.stringify(overrides));
-
-      // Also update in custom products if this was a custom product
-      const customProds = getCustomProducts();
-      const updatedCustomProds = customProds.map((p) => {
-        if (p.id === updatedProduct.id || (p.name && updatedProduct.name && p.name.trim().toLowerCase() === updatedProduct.name.trim().toLowerCase())) {
-          return { ...p, ...updatedProduct };
-        }
-        return p;
-      });
-      localStorage.setItem('stitch_custom_products', JSON.stringify(updatedCustomProds));
-    } catch {}
 
     setProducts((prev) => {
-      const updated = prev.map((p) => (p.id === updatedProduct.id || (p.name && updatedProduct.name && p.name.trim().toLowerCase() === updatedProduct.name.trim().toLowerCase()) ? { ...p, ...updatedProduct } : p));
+      const cleanId = String(updatedProduct.id).trim();
+      const updated = prev.map((p) => (String(p.id).trim() === cleanId ? { ...p, ...updatedProduct } : p));
       try {
         localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
       } catch {}
@@ -196,11 +90,12 @@ export function StoreProvider({ children }) {
   const updateProductPrice = async (productId, newPrice) => {
     const numericPrice = Number(newPrice);
     if (!productId || isNaN(numericPrice) || numericPrice <= 0) return;
+    const cleanId = String(productId).trim();
 
     // 1. Immediately update in React state
     setProducts((prev) => {
       const updated = prev.map((p) => {
-        if (p.id === productId || (p.name && productId && p.name.trim().toLowerCase() === String(productId).trim().toLowerCase())) {
+        if (String(p.id).trim() === cleanId) {
           return { ...p, price: numericPrice };
         }
         return p;
@@ -211,28 +106,10 @@ export function StoreProvider({ children }) {
       return updated;
     });
 
-    // 2. Persist to localStorage overrides
-    try {
-      const overrides = getStoredOverrides();
-      const currentOv = overrides[productId] || {};
-      overrides[productId] = { ...currentOv, id: productId, price: numericPrice };
-      localStorage.setItem('stitch_admin_products_override', JSON.stringify(overrides));
-
-      // 3. Persist to custom products if applicable
-      const customProds = getCustomProducts();
-      const updatedCustom = customProds.map((p) => {
-        if (p.id === productId || (p.name && productId && p.name.trim().toLowerCase() === String(productId).trim().toLowerCase())) {
-          return { ...p, price: numericPrice };
-        }
-        return p;
-      });
-      localStorage.setItem('stitch_custom_products', JSON.stringify(updatedCustom));
-    } catch {}
-
-    // 4. Synchronize with backend API
+    // 2. Synchronize with backend API
     try {
       const activeToken = token || localStorage.getItem('stitch_token');
-      await fetch(`/api/products/${encodeURIComponent(productId)}`, {
+      const res = await fetch(`/api/products/${encodeURIComponent(cleanId)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -240,27 +117,22 @@ export function StoreProvider({ children }) {
         },
         body: JSON.stringify({ price: numericPrice })
       });
+      if (!res.ok) {
+        console.warn('Backend price update returned non-OK status:', res.status);
+      }
     } catch (err) {
       console.warn('Backend price sync note:', err);
     }
   };
 
-  // Optimistic & Persistent Add Product Helper
+  // Immediate Add Product Helper
   const addProductLocal = (newProduct) => {
     if (!newProduct || !newProduct.id) return;
-    try {
-      const customProds = getCustomProducts();
-      const existingIdx = customProds.findIndex(p => p.id === newProduct.id || (p.name && newProduct.name && p.name.trim().toLowerCase() === newProduct.name.trim().toLowerCase()));
-      if (existingIdx >= 0) {
-        customProds[existingIdx] = { ...customProds[existingIdx], ...newProduct };
-      } else {
-        customProds.unshift(newProduct);
-      }
-      localStorage.setItem('stitch_custom_products', JSON.stringify(customProds));
-    } catch {}
+    const cleanId = String(newProduct.id).trim();
 
     setProducts((prev) => {
-      const updated = [newProduct, ...prev.filter((p) => p.id !== newProduct.id && (!newProduct.name || p.name.trim().toLowerCase() !== newProduct.name.trim().toLowerCase()))];
+      const filtered = prev.filter((p) => String(p.id).trim() !== cleanId);
+      const updated = [newProduct, ...filtered];
       try {
         localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
       } catch {}
@@ -268,25 +140,13 @@ export function StoreProvider({ children }) {
     });
   };
 
-  // Optimistic & Persistent Delete Product Helper
+  // Immediate Delete Product Helper
   const deleteProductLocal = (productId) => {
     if (!productId) return;
-    try {
-      const deletedIds = getDeletedIds();
-      if (!deletedIds.includes(productId)) {
-        deletedIds.push(productId);
-        localStorage.setItem('stitch_deleted_products', JSON.stringify(deletedIds));
-      }
-      const overrides = getStoredOverrides();
-      delete overrides[productId];
-      localStorage.setItem('stitch_admin_products_override', JSON.stringify(overrides));
-      
-      const customProds = getCustomProducts().filter((p) => p.id !== productId);
-      localStorage.setItem('stitch_custom_products', JSON.stringify(customProds));
-    } catch {}
+    const cleanId = String(productId).trim();
 
     setProducts((prev) => {
-      const updated = prev.filter((p) => p.id !== productId);
+      const updated = prev.filter((p) => String(p.id).trim() !== cleanId);
       try {
         localStorage.setItem('stitch_products_cache', JSON.stringify(updated));
       } catch {}
@@ -294,25 +154,24 @@ export function StoreProvider({ children }) {
     });
   };
 
-  // Fetch Products & Categories
+  // Fetch Products & Categories from Backend
   const fetchProducts = async () => {
     setLoadingProducts(true);
     try {
       const params = new URLSearchParams();
       if (selectedCategory !== 'all') params.append('category', selectedCategory);
       if (searchQuery) params.append('search', searchQuery);
-      if (maxPrice < 250) params.append('maxPrice', maxPrice);
+      if (maxPrice < 1000) params.append('maxPrice', maxPrice);
       if (sortBy !== 'featured') params.append('sort', sortBy);
 
       const res = await fetch(`/api/products?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         if (data.products && Array.isArray(data.products)) {
-          const finalMerged = applyOverrides(data.products);
-          setProducts(finalMerged);
-          if (selectedCategory === 'all' && !searchQuery && maxPrice >= 250 && sortBy === 'featured') {
+          setProducts(data.products);
+          if (selectedCategory === 'all' && !searchQuery && maxPrice >= 1000 && sortBy === 'featured') {
             try {
-              localStorage.setItem('stitch_products_cache', JSON.stringify(finalMerged));
+              localStorage.setItem('stitch_products_cache', JSON.stringify(data.products));
             } catch {}
           }
         }

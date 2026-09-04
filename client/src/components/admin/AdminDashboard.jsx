@@ -312,24 +312,30 @@ export default function AdminDashboard({ isOpen, onClose }) {
   const handleDeleteProduct = async (prodId, prodName) => {
     if (!window.confirm(`Are you sure you want to delete "${prodName}" from the store catalog?`)) return;
 
-    // Immediately remove from UI and persistent local storage
+    // Immediately remove from UI
     deleteProductLocal(prodId);
 
     try {
       const activeToken = token || localStorage.getItem('stitch_token');
-      const res = await fetch(`/api/products/${prodId}`, {
+      const res = await fetch(`/api/products/${encodeURIComponent(prodId)}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${activeToken}` }
+        headers: { 
+          'Authorization': `Bearer ${activeToken}`,
+          'Content-Type': 'application/json'
+        }
       });
       if (res.ok) {
-        showToast(`"${prodName}" deleted from store`, 'info');
+        showToast(`"${prodName}" deleted from store catalog`, 'info');
         await fetchProducts();
       } else {
-        const data = await res.json();
-        showToast(data.error || 'Failed to delete product from server', 'warning');
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || 'Failed to delete product from server', 'error');
+        await fetchProducts();
       }
     } catch (err) {
+      console.error('Delete product error:', err);
       showToast('Deleted locally from browser catalog', 'info');
+      await fetchProducts();
     }
   };
 

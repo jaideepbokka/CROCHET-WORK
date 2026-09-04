@@ -17,13 +17,27 @@ export default function ProductGrid() {
     setSortBy 
   } = useStore();
 
-  const categories = [
+  const knownCategories = [
     { id: 'all', label: 'All Creations' },
-    { id: 'laptop-bags', label: 'Laptop Bags (₹150–200)' },
-    { id: 'buds-cases', label: 'Buds Cases (₹70–100)' },
-    { id: 'spiderman-keychains', label: 'Spiderman (₹80)' },
-    { id: 'keychains', label: 'Keychains (₹70)' }
+    { id: 'laptop-bags', label: 'Laptop Bags' },
+    { id: 'buds-cases', label: 'Buds Cases' },
+    { id: 'spiderman-keychains', label: 'Spiderman' },
+    { id: 'keychains', label: 'Keychains' }
   ];
+
+  // Automatically discover any other categories present in the catalog
+  const categories = [...knownCategories];
+  products.forEach(p => {
+    const slug = p.categorySlug || (p.category ? p.category.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '');
+    if (slug && !categories.some(c => c.id === slug)) {
+      categories.push({
+        id: slug,
+        label: p.category || slug
+      });
+    }
+  });
+
+  const maxCatalogPrice = Math.max(300, ...products.map(p => Number(p.price) || 0));
 
   return (
     <section id="products-section" className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -79,15 +93,15 @@ export default function ProductGrid() {
               <span className="text-gray-500 font-bold whitespace-nowrap">Price Range:</span>
               <input
                 type="range"
-                min="70"
-                max="250"
+                min="50"
+                max={maxCatalogPrice}
                 step="5"
-                value={maxPrice}
+                value={Math.min(maxPrice, maxCatalogPrice)}
                 onChange={(e) => setMaxPrice(Number(e.target.value))}
                 className="lux-slider w-28 sm:w-36 cursor-pointer"
               />
               <span className="font-extrabold text-[#1D4548] bg-[#E1EFEF] px-2.5 py-1 rounded-xl text-xs min-w-[46px] text-center">
-                ≤ ₹{maxPrice}
+                {maxPrice >= maxCatalogPrice ? 'All Prices' : `≤ ₹${maxPrice}`}
               </span>
             </div>
 

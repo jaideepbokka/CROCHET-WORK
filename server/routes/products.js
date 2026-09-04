@@ -40,16 +40,14 @@ router.get('/', (req, res) => {
  * GET /api/products/:id
  */
 router.get('/:id', (req, res) => {
-  const product = db.getProductById(req.params.id);
+  const productId = decodeURIComponent(req.params.id).trim();
+  const product = db.getProductById(productId);
   if (!product) {
     return res.status(404).json({ error: 'Product not found.' });
   }
   return res.status(200).json({ product });
 });
 
-/**
- * POST /api/products (Admin Only: Add New Product)
- */
 /**
  * POST /api/products (Admin Only: Add New Product)
  */
@@ -74,7 +72,7 @@ router.post('/', requireAdmin, async (req, res) => {
       images: imagesList,
       dimensions: dimensions || '',
       yarnMaterial: yarnMaterial || '100% Premium Milk Cotton Yarn',
-      badge: badge || 'New',
+      badge: badge || 'New Arrival',
       colorOptions: Array.isArray(colorOptions) ? colorOptions : (colorOptions ? colorOptions.split(',').map(s => s.trim()) : ['Default']),
       inStock: inStock !== false
     });
@@ -91,7 +89,7 @@ router.post('/', requireAdmin, async (req, res) => {
  */
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
-    const productId = req.params.id;
+    const productId = decodeURIComponent(req.params.id).trim();
     const updates = req.body;
     
     if (updates.colorOptions && typeof updates.colorOptions === 'string') {
@@ -115,7 +113,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
  */
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
-    const productId = req.params.id;
+    const productId = decodeURIComponent(req.params.id).trim();
     const deleted = await db.deleteProduct(productId);
     if (!deleted) {
       return res.status(404).json({ error: 'Product not found.' });

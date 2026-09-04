@@ -128,6 +128,13 @@ export const initMySQL = async () => {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS deleted_products (
+        id VARCHAR(255) PRIMARY KEY,
+        deletedAt DATETIME
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
     isConnected = true;
     console.log(`🐬 [MYSQL SUCCESS] Connected to MySQL database "${database}" on ${host}:${port}!`);
 
@@ -184,10 +191,26 @@ export const isMySQLConnected = () => isConnected;
    PRODUCT MYSQL CRUD OPERATIONS
    ============================================================ */
 
+export const getMySQLDeletedIds = async () => {
+  if (!pool || !isConnected) return [];
+  try {
+    const [rows] = await pool.query('SELECT id FROM deleted_products');
+    return rows.map(r => r.id);
+  } catch (err) {
+    console.error('getMySQLDeletedIds error:', err.message);
+    return [];
+  }
+};
+
 export const getMySQLProducts = async () => {
   if (!pool || !isConnected) return null;
   try {
-    const [rows] = await pool.query('SELECT * FROM products ORDER BY createdAt DESC');
+    const [rows] = await pool.query(`
+      SELECT p.* FROM products p 
+      LEFT JOIN deleted_products dp ON p.id = dp.id 
+      WHERE dp.id IS NULL 
+      ORDER BY p.createdAt DESC
+    `);
     return rows.map(r => ({
       id: r.id,
       name: r.name,
@@ -218,6 +241,11 @@ export const getMySQLProducts = async () => {
 export const upsertMySQLProduct = async (product) => {
   if (!pool || !isConnected || !product) return false;
   try {
+    // If it was previously marked deleted, unmark it upon explicit add/upsert
+    try {
+      await pool.query('DELETE FROM deleted_products WHERE id = ?', [product.id]);
+    } catch {}
+
     const primaryImg = product.image || (Array.isArray(product.images) && product.images[0]) || '/images/laptop_bag_lavender.jpg';
     const imagesList = Array.isArray(product.images) && product.images.length > 0 ? product.images : [primaryImg];
     const imagesJson = JSON.stringify(imagesList);
@@ -303,6 +331,7 @@ export const deleteMySQLProduct = async (id) => {
   if (!pool || !isConnected || !id) return false;
   try {
     await pool.query('DELETE FROM products WHERE id = ?', [id]);
+    await pool.query('INSERT INTO deleted_products (id, deletedAt) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE deletedAt = NOW()', [id]);
     return true;
   } catch (err) {
     console.error('deleteMySQLProduct error:', err.message);
