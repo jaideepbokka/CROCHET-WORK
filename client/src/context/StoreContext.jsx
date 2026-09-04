@@ -37,6 +37,7 @@ export function StoreProvider({ children }) {
   };
 
   // Merge server products with client persistent overrides
+  // Merge server products with client persistent overrides
   const applyOverrides = (backendProducts) => {
     if (!Array.isArray(backendProducts)) return [];
     const overrides = getStoredOverrides();
@@ -49,7 +50,7 @@ export function StoreProvider({ children }) {
       if (overrides[prod.id]) return overrides[prod.id];
       const matchKey = Object.keys(overrides).find((k) => {
         const item = overrides[k];
-        return item && prod.name && item.name && item.name.trim().toLowerCase() === prod.name.trim().toLowerCase();
+        return item && prod.name && item.name && item.name.trim().toLowerCase() === prod.name.trim().toLowerCase() && prod.name.trim().toLowerCase() !== 'crochet creation';
       });
       return matchKey ? overrides[matchKey] : null;
     };
@@ -61,7 +62,20 @@ export function StoreProvider({ children }) {
     merged = merged.map((p) => {
       const ov = findOverride(p);
       if (ov) {
-        return { ...p, ...ov };
+        // If server product already has an updated image, preserve it if override image is just the default placeholder
+        const ovImageIsDefault = ov.image === '/images/laptop_bag_lavender.jpg';
+        const serverImageIsCustom = p.image && p.image !== '/images/laptop_bag_lavender.jpg';
+        const effectiveImage = (ovImageIsDefault && serverImageIsCustom) ? p.image : (ov.image || p.image);
+        const effectiveImages = (ov.images && ov.images.length > 0 && !(ov.images.length === 1 && ov.images[0] === '/images/laptop_bag_lavender.jpg' && serverImageIsCustom))
+          ? ov.images
+          : (p.images && p.images.length > 0 ? p.images : [effectiveImage]);
+
+        return { 
+          ...p, 
+          ...ov,
+          image: effectiveImage,
+          images: effectiveImages
+        };
       }
       return p;
     });
@@ -71,7 +85,10 @@ export function StoreProvider({ children }) {
       if (!deletedIds.includes(cp.id)) {
         const ov = findOverride(cp);
         const fullProd = ov ? { ...cp, ...ov } : cp;
-        const existingIdx = merged.findIndex((p) => p.id === cp.id || (p.name && cp.name && p.name.trim().toLowerCase() === cp.name.trim().toLowerCase()));
+        const existingIdx = merged.findIndex((p) => 
+          p.id === cp.id || 
+          (p.name && cp.name && p.name.trim().toLowerCase() === cp.name.trim().toLowerCase() && p.name.trim().toLowerCase() !== 'crochet creation')
+        );
         if (existingIdx >= 0) {
           merged[existingIdx] = {
             ...merged[existingIdx],

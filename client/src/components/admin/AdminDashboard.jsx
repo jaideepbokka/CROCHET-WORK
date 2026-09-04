@@ -32,6 +32,7 @@ import {
   Star
 } from 'lucide-react';
 import { FORMATTED_PHONE, BUSINESS_PHONE } from '../../utils/whatsapp';
+import { compressImageFile } from '../../utils/imageCompressor';
 
 export default function AdminDashboard({ isOpen, onClose }) {
   const { user, token } = useAuth();
@@ -77,8 +78,8 @@ export default function AdminDashboard({ isOpen, onClose }) {
     { label: 'Daisy Bell Charm', value: '/images/keychain_daisy.jpg' }
   ];
 
-  // Handler for uploading multiple custom images from computer or mobile
-  const handleMultipleImageUpload = (e) => {
+  // Handler for uploading multiple custom images with automatic compression
+  const handleMultipleImageUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
@@ -88,30 +89,23 @@ export default function AdminDashboard({ isOpen, onClose }) {
       return;
     }
 
-    let loaded = 0;
-    const loadedDataUrls = [];
+    showToast(`Optimizing ${validFiles.length} photo${validFiles.length > 1 ? 's' : ''}... 🎨`, 'info');
 
-    validFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          loadedDataUrls.push(event.target.result);
-        }
-        loaded++;
-        if (loaded === validFiles.length) {
-          setPImages((prev) => {
-            const cleanPrev = prev.filter(img => img !== '/images/laptop_bag_lavender.jpg');
-            return [...cleanPrev, ...loadedDataUrls];
-          });
-          setActivePreviewIndex(0);
-          showToast(`${validFiles.length} photo${validFiles.length > 1 ? 's' : ''} added successfully! 📸`, 'success');
-        }
-      };
-      reader.onerror = () => {
-        loaded++;
-      };
-      reader.readAsDataURL(file);
-    });
+    try {
+      const compressedResults = await Promise.all(
+        validFiles.map(file => compressImageFile(file, 1200, 0.85))
+      );
+
+      setPImages((prev) => {
+        const cleanPrev = prev.filter(img => img !== '/images/laptop_bag_lavender.jpg');
+        return [...cleanPrev, ...compressedResults];
+      });
+      setActivePreviewIndex(0);
+      showToast(`${validFiles.length} photo${validFiles.length > 1 ? 's' : ''} added & optimized! 📸✨`, 'success');
+    } catch (err) {
+      console.error('Image upload optimization error:', err);
+      showToast('Failed to optimize some images', 'error');
+    }
     e.target.value = '';
   };
 
@@ -272,17 +266,9 @@ export default function AdminDashboard({ isOpen, onClose }) {
       createdAt: new Date().toISOString()
     };
 
-    // 1. Instantly register locally in state and browser storage
-    if (editingProductId) {
-      updateProductLocal(payload);
-      updateProductPrice(editingProductId, Number(pPrice));
-    } else {
-      addProductLocal(payload);
-    }
-
     try {
       const activeToken = token || localStorage.getItem('stitch_token');
-      const url = editingProductId ? `/api/products/${editingProductId}` : '/api/products';
+      const url = editingProductId ? `/api/products/${encodeURIComponent(editingProductId)}` : '/api/products';
       const method = editingProductId ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -294,23 +280,30 @@ export default function AdminDashboard({ isOpen, onClose }) {
         body: JSON.stringify(payload)
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.product) {
-          updateProductLocal(data.product);
-        }
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Server returned status ${res.status}`);
       }
 
-      showToast(editingProductId ? 'Product updated successfully!' : `"${payload.name}" published to store! 🎉`, 'success');
+      const data = await res.json();
+      const savedProd = data.product || payload;
+
+      // 1. Instantly register updated product in local store state and persistent storage
+      if (editingProductId) {
+        updateProductLocal(savedProd);
+        updateProductPrice(editingProductId, Number(pPrice));
+      } else {
+        addProductLocal(savedProd);
+      }
+
+      showToast(editingProductId ? 'Product & images updated successfully! ✨' : `"${payload.name}" published to store! 🎉`, 'success');
       setProductModalOpen(false);
       resetForm();
       setActiveTab('products');
       await fetchProducts();
-    } catch {
-      showToast(editingProductId ? 'Product updated locally in store!' : `"${payload.name}" published to store! 🎉`, 'success');
-      setProductModalOpen(false);
-      resetForm();
-      setActiveTab('products');
+    } catch (err) {
+      console.error('Failed to save product:', err);
+      showToast(err.message || 'Failed to save product to server', 'error');
     } finally {
       setSavingProduct(false);
     }
